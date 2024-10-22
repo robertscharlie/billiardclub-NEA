@@ -5,10 +5,12 @@ import random
 pygame.init()
 
 # Variables
-FPS = 60
-resolution = (1000, 600) # Screen dimensions
+FPS = 120
+resolution = (800, 600) # Screen dimensions
 borderName = "ballPhysics.py" # Displays at the top of the program
 VEC = pygame.math.Vector2
+
+ballRadius = 30
 
 # Pygame Functions
 pygame.display.set_caption(borderName)
@@ -21,7 +23,7 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
         self.colour = colour
         self.radius = radius
         self.pos = VEC(pos) # Position Vector
-        self.velocity = VEC(velocity[0], velocity[1]) # Velocity vector
+        self.velocity = VEC(velocity) # Velocity vector
         self.mass = mass
 
     def update(self): # Updates the position of the ball
@@ -76,19 +78,17 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
 ballGroup = pygame.sprite.Group() # Groups all balls for easier maintenance
 
 balls = [
-    Ball("white", radius=40, pos=(500,490), velocity=3*VEC(-1,5).normalize(), mass=5), # Instantiates the Class
-    Ball("red", radius=40, pos=(500,500), velocity=3*VEC(-1,5).normalize(), mass=5),
-    Ball("blue", radius=40, pos=(300,800), velocity=3*VEC(-1,5).normalize(), mass=5),
-    Ball("green", radius=40, pos=(100,300), velocity=3*VEC(-1,5).normalize(), mass=5),
-    Ball("yellow", radius=40, pos=(100,400), velocity=3*VEC(-1,5).normalize(), mass=5), 
+    Ball("blue", radius=ballRadius, pos=(300,800), velocity=3*VEC(-1,5).normalize(), mass=5),# Instantiates the Class
+    Ball("green", radius=ballRadius, pos=(100,300), velocity=3*VEC(6,5).normalize(), mass=5),
+    Ball("yellow", radius=ballRadius, pos=(100,400), velocity=3*VEC(-1,5).normalize(), mass=5), 
 ]
 
 for ball in balls:  
     ballGroup.add(ball) # Adds the ball to the group
 
 
-print(ballGroup.sprites())
 
+count = 5
 # Game Loop
 while True:
     for event in pygame.event.get():
@@ -96,11 +96,10 @@ while True:
             pygame.quit()
             exit()
         if event.type == pygame.MOUSEBUTTONDOWN:
-            print(pygame.mouse.get_pos())
             ballGroup.add(
                 Ball(
                     random.choice(["red", "green", "yellow", "blue"]),
-                    40,
+                    ballRadius,
                     pygame.mouse.get_pos(),
                     (
                         random.choice([-1, 1]) * 3*random.random(),
@@ -109,6 +108,7 @@ while True:
                     5,
                 )
             )
+            count += 1
     screen.fill((30, 30, 30)) # Fills the screen with a grey colour
 
     ballGroup.update() # update each ball
@@ -123,7 +123,7 @@ while True:
     # FPS Display
     currentFPS = str(round(clock.get_fps(), 1))
     text = pygame.font.SysFont("dubaimedium", 20).render(
-        str(currentFPS), True, "white", "black")
+        (str(currentFPS) + "  Balls: " + str(count)), True, "white", "black")
     screen.blit(text, (5, 5))
 
     pygame.display.flip() # Updates the display
