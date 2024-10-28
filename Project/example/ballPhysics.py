@@ -10,7 +10,7 @@ resolution = (800, 600) # Screen dimensions
 borderName = "ballPhysics.py" # Displays at the top of the program
 VEC = pygame.math.Vector2
 
-ballRadius = 30
+ballRadius = 10
 
 # Pygame Functions
 pygame.display.set_caption(borderName)
@@ -88,7 +88,7 @@ for ball in balls:
 
 
 
-count = 5
+count = len(balls)
 # Game Loop
 while True:
     for event in pygame.event.get():
