@@ -3,7 +3,6 @@ import math
 
 pygame.init()
 
-
 # Variables
 FPS = 70
 resolution = (1280, 720) # Screen dimensions
@@ -13,16 +12,10 @@ root3 = math.sqrt(3)
 friction = 0.991
 restitutionCoeff = 0.95
 
-
-
-# friction = 1
-
-
 # Table Variables and Setup
 primaryTableColour = "#155843"
 secondaryTableColour = "#313e46"
 outerTableColour = "#313e46"
-
 tableDimensions = (900,450)
 centre = (resolution[0]//2, resolution[1]//2)
 holeRadius = 15
@@ -32,7 +25,6 @@ ballRadius = 12
 ballFont = pygame.font.SysFont("dubaimedium", int(ballRadius*0.9))
 fpsFont = pygame.font.SysFont("dubaimedium", 20)
 logoFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 70)
-
 
 tableCorners = (
     (centre[0] - tableDimensions[0] / 2, centre[1] - tableDimensions[1] / 2), # Top Left
@@ -208,7 +200,6 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
 
         # COMPILE ALL DRAWINGS INTO ONE BLIT
 
-
     def delete(self):
         if self.colour != "white": # delete later
             self.kill()
@@ -257,7 +248,6 @@ balls = [
 
 for i in balls:
     ballGroup.add(i)
-
 
 # Pygame Functions
 pygame.display.set_caption(borderName)
@@ -311,18 +301,14 @@ while True:
     pygame.draw.polygon(screen, secondaryTableColour, tableRails["ML"])    # Left Middle Side
     pygame.draw.polygon(screen, secondaryTableColour, tableRails["MR"])    # Right Middle Side
 
-
     # Draw Holes
     for i in holePos:
         pygame.draw.circle(screen, "black", (holePos[i][0],holePos[i][1]), holeRadius)
-
 
     # Draws a white line on each of the Rails (where collisions should be done)
     for i in tableRails:
         for j in range(3):
             pygame.draw.line(screen, "white", tableRails[i][j],tableRails[i][j+1])
-
-
 
     ballMoving = False # sets initial case to False
     ballGroup.update() # update each ball
@@ -340,7 +326,6 @@ while True:
             mousePos = pygame.mouse.get_pos() # get mouse position
             mouseVec = VEC(balls[0].pos[0]-mousePos[0],balls[0].pos[1]-mousePos[1]) # vector of line
             balls[0].velocity = mouseVec.normalize()*20 # normalise vector and give ball a magnitude
-
 
     # Checks collision between every pair of balls
     for i in range(len(ballGroup)):
