@@ -1,17 +1,19 @@
 import pygame
 import math
-import random
 
 pygame.init()
 
+
 # Variables
-FPS = 60
+FPS = 70
 resolution = (1280, 720) # Screen dimensions
 borderName = "Billiard Club" # Displays at the top of the program
 VEC = pygame.math.Vector2
 root3 = math.sqrt(3)
 friction = 0.991
-restitutionCoeff = 0.9
+restitutionCoeff = 0.95
+
+
 
 # friction = 1
 
@@ -25,6 +27,12 @@ tableDimensions = (900,450)
 centre = (resolution[0]//2, resolution[1]//2)
 holeRadius = 15
 ballRadius = 12
+
+# Fonts
+ballFont = pygame.font.SysFont("dubaimedium", int(ballRadius*0.9))
+fpsFont = pygame.font.SysFont("dubaimedium", 20)
+logoFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 70)
+
 
 tableCorners = (
     (centre[0] - tableDimensions[0] / 2, centre[1] - tableDimensions[1] / 2), # Top Left
@@ -93,20 +101,24 @@ tableRails = {
 
 # Ball Class
 class Ball(pygame.sprite.Sprite): # Defines a class for a ball
-    def __init__(self, colour, radius, pos, velocity, mass): # Constructor Method
+    def __init__(self, colour, radius, pos, velocity, mass, number, isStriped): # Constructor Method
         super().__init__()
         self.colour = colour
         self.radius = radius
         self.pos = VEC(pos) # Position Vector
         self.velocity = VEC(velocity) # Velocity vector
         self.mass = mass
+        self.number = number # stores the ball number, e.g. the 8 ball
+        self.isStriped = isStriped # boolean, stores whether the ball is coloured or striped
 
     def update(self): # Updates the position of the ball
         self.pos += self.velocity # moves ball to next position
         self.velocity *= friction # reduces the velocity of the ball
+
+        if self.velocity.magnitude_squared() < 0.005:
+            self.velocity = VEC(0,0)
         
-        # Checking collisions with the walls:
-        
+        # Checking collisions with the outer walls: (ensures all balls stay in region)
         if self.pos[0] - self.radius <= tableCorners[0][0]: # Left Wall
             self.pos[0] = self.radius + tableCorners[0][0]  # Put ball on edge of wall
             self.velocity[0] *= -1 # Reverses X component
@@ -132,7 +144,7 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
             return
 
         if distanceSquared < (self.radius + other.radius)**2: # If colliding
-            self.pos -= self.velocity # undoes last move, to prevent clipping
+            # self.pos -= self.velocity # undoes last move, to prevent clipping
 
             # Calculate Velocities after collision
             n = VEC(posDifference).normalize() # creates a normalised vector as a origin for calculations
@@ -173,8 +185,33 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
                     self.velocity -= impulse * n # applies impulse to each ball
                     self.velocity *= restitutionCoeff # decreases velocity 
 
+    def checkHoleCollision(self):
+        for i in holePos: # for each hole on the table
+            distance2 = self.pos.distance_squared_to(holePos[i]) # compute the distance
+            if distance2 <= (holeRadius*0.8)**2: # if colliding
+                return True
+        return False
+                
     def draw(self, screen): # Draws the ball to the screen
-        pygame.draw.circle(screen, self.colour, self.pos, self.radius)
+        pygame.draw.circle(screen, self.colour, self.pos, self.radius) # draws outer circle
+    
+        text = ballFont.render(str(self.number),True,"black") # renders font
+
+        pygame.draw.circle(screen, "white", self.pos, text.get_height()/2.2) # draws inner circle
+        
+        fontPos = [ # offsets the font to be central with ball
+            self.pos[0] - text.get_width()/2,
+            self.pos[1] - text.get_height()/2
+        ]
+
+        screen.blit(text,fontPos) # adds font to screen
+
+        # COMPILE ALL DRAWINGS INTO ONE BLIT
+
+
+    def delete(self):
+        if self.colour != "white": # delete later
+            self.kill()
 
 ballGroup = pygame.sprite.Group() # Groups all balls for easier maintenance
 
@@ -200,22 +237,22 @@ ballStartPos = {
 
 # Instantiate each ball
 balls = [
-    Ball("white", ballRadius, ballStartPos["white0"], (30, 0), 1),      # Whiteball
-    Ball("yellow", ballRadius, ballStartPos["yellow1"], (0, 0), 1),     # Yellow 1
-    Ball("blue", ballRadius, ballStartPos["blue2"], (0, 0), 1),        # Blue 2
-    Ball("red", ballRadius, ballStartPos["red3"], (0, 0), 1),           # Red 3
-    Ball("purple", ballRadius, ballStartPos["purple4"], (0, 0), 1),    # Purple 4
-    Ball("orange", ballRadius, ballStartPos["orange5"], (0, 0), 1),     # Orange 5
-    Ball("green", ballRadius, ballStartPos["green6"], (0, 0), 1),       # Green 6
-    Ball("maroon", ballRadius, ballStartPos["maroon7"], (0, 0), 1),     # Maroon 7
-    Ball("black", ballRadius, ballStartPos["black8"], (0, 0), 1),      # Black 8
-    Ball("yellow", ballRadius, ballStartPos["yellow9"], (0, 0), 1),     # Yellow 9
-    Ball("blue", ballRadius, ballStartPos["blue10"], (0, 0), 1),       # Blue 10
-    Ball("red", ballRadius, ballStartPos["red11"], (0, 0), 1),          # Red 11
-    Ball("purple", ballRadius, ballStartPos["purple12"], (0, 0), 1),    # Purple 12
-    Ball("orange", ballRadius, ballStartPos["orange13"], (0, 0), 1),    # Orange 13
-    Ball("green", ballRadius, ballStartPos["green14"], (0, 0), 1),      # Green 14
-    Ball("maroon", ballRadius, ballStartPos["maroon15"], (0, 0), 1),    # Maroon 15
+    Ball("white", ballRadius, ballStartPos["white0"], (0, 0), 1, 0, False),      # Whiteball
+    Ball("yellow", ballRadius, ballStartPos["yellow1"], (0, 0), 1, 1, False),    # Yellow 1
+    Ball("blue", ballRadius, ballStartPos["blue2"], (0, 0), 1, 2, False),        # Blue 2
+    Ball("red", ballRadius, ballStartPos["red3"], (0, 0), 1, 3, False),          # Red 3
+    Ball("purple", ballRadius, ballStartPos["purple4"], (0, 0), 1, 4, False),    # Purple 4
+    Ball("orange", ballRadius, ballStartPos["orange5"], (0, 0), 1, 5, False),    # Orange 5
+    Ball("green", ballRadius, ballStartPos["green6"], (0, 0), 1, 6, False),      # Green 6
+    Ball("maroon", ballRadius, ballStartPos["maroon7"], (0, 0), 1, 7, False),    # Maroon 7
+    Ball("black", ballRadius, ballStartPos["black8"], (0, 0), 1, 8, False),      # Black 8
+    Ball("yellow", ballRadius, ballStartPos["yellow9"], (0, 0), 1, 9, True),    # Yellow 9
+    Ball("blue", ballRadius, ballStartPos["blue10"], (0, 0), 1, 10, True),       # Blue 10
+    Ball("red", ballRadius, ballStartPos["red11"], (0, 0), 1, 11, True),         # Red 11
+    Ball("purple", ballRadius, ballStartPos["purple12"], (0, 0), 1, 12, True),   # Purple 12
+    Ball("orange", ballRadius, ballStartPos["orange13"], (0, 0), 1, 13, True),   # Orange 13
+    Ball("green", ballRadius, ballStartPos["green14"], (0, 0), 1, 14, True),     # Green 14
+    Ball("maroon", ballRadius, ballStartPos["maroon15"], (0, 0), 1, 15, True),   # Maroon 15
 ]
 
 for i in balls:
@@ -230,10 +267,14 @@ clock = pygame.time.Clock()
 
 # Game Loop
 while True:
+    mouseDown = False
     for event in pygame.event.get():
         if event.type == pygame.QUIT: # Checks if user closes program
             pygame.quit()
             exit()
+
+        if event.type == pygame.MOUSEBUTTONDOWN: # on left click
+            mouseDown = True
 
     screen.fill((30, 30, 30)) # Fills the screen with a grey colour
 
@@ -262,7 +303,6 @@ while True:
         border_radius=3 # Border Radius
     )
 
-    
     # Draw Table Rails
     pygame.draw.polygon(screen, secondaryTableColour, tableRails["TL"])    # Top Left Side
     pygame.draw.polygon(screen, secondaryTableColour, tableRails["TR"])    # Top Right Side
@@ -283,10 +323,24 @@ while True:
             pygame.draw.line(screen, "white", tableRails[i][j],tableRails[i][j+1])
 
 
+
+    ballMoving = False # sets initial case to False
     ballGroup.update() # update each ball
     for ball in ballGroup.sprites():
+        if ball.velocity != (0,0): # checks if the ball is completely still
+            ballMoving = True # if even one ball is still moving, it is set to True.
         ball.checkResolveWallCollision() # checks wall collisions
+        if ball.checkHoleCollision(): # checks if each ball is in a hole
+            ball.delete() # removes the ball from the game
         ball.draw(screen) # draws each ball
+
+    if not ballMoving: # when all the balls are still
+        pygame.draw.line(screen, "red", balls[0].pos, pygame.mouse.get_pos(), 2) # draw cue
+        if mouseDown: # when clicked
+            mousePos = pygame.mouse.get_pos() # get mouse position
+            mouseVec = VEC(balls[0].pos[0]-mousePos[0],balls[0].pos[1]-mousePos[1]) # vector of line
+            balls[0].velocity = mouseVec.normalize()*20 # normalise vector and give ball a magnitude
+
 
     # Checks collision between every pair of balls
     for i in range(len(ballGroup)):
@@ -295,10 +349,13 @@ while True:
 
     # FPS Display
     currentFPS = str(round(clock.get_fps(), 1))
-    text = pygame.font.SysFont("dubaimedium", 20).render(
-        (str(currentFPS)), True, "white")
-    screen.blit(text, (5, 5))
+    text = fpsFont.render((str(currentFPS)), True, "white")
+    screen.blit(text, (5, 3))
+
+    # Logo display
+    logo = logoFont.render(("BILLIARD CLUB"), True, "white")
+    logo = pygame.transform.rotate(logo,270)
+    screen.blit(logo, (resolution[0] - logo.get_width() - 30, centre[1]-logo.get_height()/2))
 
     pygame.display.flip() # Updates the display
     clock.tick(FPS) # Caps the frame rate
-
