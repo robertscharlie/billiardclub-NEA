@@ -23,8 +23,10 @@ ballRadius = 12
 
 # Fonts
 ballFont = pygame.font.SysFont("dubaimedium", int(ballRadius*0.9))
+ballUIFont = pygame.font.SysFont("dubaimedium", 18)
 fpsFont = pygame.font.SysFont("dubaimedium", 20)
 logoFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 70)
+ballPottedFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 70)
 
 tableCorners = (
     (centre[0] - tableDimensions[0] / 2, centre[1] - tableDimensions[1] / 2), # Top Left
@@ -204,7 +206,81 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
         if self.colour != "white": # delete later
             self.kill()
 
+# Slider Class
+class Slider(pygame.sprite.Sprite):
+    def __init__(self, outerColour, sliderColour, position, width, height, value):
+        super().__init__()
+        self.outerColour = outerColour # colour of the outer section
+        self.sliderColour = sliderColour # colour of the slider
+        self.position = position # (x,y)
+        self.width = width # width of the slider
+        self.height = height # height of the slider
+        self.value = value # starting value of the slider
+        self.mouseDown = False # for checking if user is interacting with slider
+    
+    def draw(self, screen): # draw method that draws slider to screen
+        # Outer Box
+        pygame.draw.rect(
+            screen,
+            self.outerColour,
+            pygame.Rect(
+                        self.position[0],
+                        self.position[1],
+                        self.width,
+                        self.height
+            ),
+            3,
+            self.width
+        )
+        # Slider
+        pygame.draw.circle(
+            screen,
+            self.sliderColour,
+            (self.position[0]+self.width/2, self.position[1] + self.value * self.height),
+            self.width,
+        )
+
+    def update(self): # updates slider position
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: # when left mouse button clicked
+            mousePos = pygame.mouse.get_pos() # get mouse position
+            if 0 <= mousePos[0] - self.position[0] <= self.width: # if click is within x bounds
+                if 0 <= mousePos[1] - self.position[1] <= self.height: # if click is within y bounds
+                    self.mouseDown = True
+        if event.type == pygame.MOUSEBUTTONUP: # when mouse button is released
+            self.mouseDown = False
+        if self.mouseDown:
+            mousePos = pygame.mouse.get_pos() # get mouse position
+            distance = mousePos[1]-self.position[1] # finds distance between bottom and mousePos
+            self.value = distance/self.height # sets the value of slider to the ratio of distances.
+            self.value = max(0, min(1, self.value))
+        
+    def returnValue(self): # returns slider position value
+        return round(1-self.value, 3)
+
+
+ballPowerSlider = Slider("white", "red", (tableCorners[0][0]/2 - 30,tableCorners[0][1]-30), 30, tableDimensions[1]+60, 0.5) # initialise slider sprite
+
 ballGroup = pygame.sprite.Group() # Groups all balls for easier maintenance
+
+# Ball info
+ballInfo = ( # COLOUR, NUMBER, STRIPED
+    ("white", 0, False),
+    ("yellow", 1, False),
+    ("blue", 2, False),
+    ("red", 3, False),
+    ("purple", 4, False),
+    ("orange", 5, False),
+    ("green", 6, False),
+    ("maroon", 7, False),
+    ("black", 8, False),
+    ("yellow", 9, True),
+    ("blue", 10, True),
+    ("red", 11, True),
+    ("purple", 12, True),
+    ("orange", 13, True),
+    ("green", 14, True),
+    ("maroon", 15, True),
+)
 
 # Define where each ball should be relative to the start position
 ballStartPos = {
@@ -237,7 +313,7 @@ balls = [
     Ball("green", ballRadius, ballStartPos["green6"], (0, 0), 1, 6, False),      # Green 6
     Ball("maroon", ballRadius, ballStartPos["maroon7"], (0, 0), 1, 7, False),    # Maroon 7
     Ball("black", ballRadius, ballStartPos["black8"], (0, 0), 1, 8, False),      # Black 8
-    Ball("yellow", ballRadius, ballStartPos["yellow9"], (0, 0), 1, 9, True),    # Yellow 9
+    Ball("yellow", ballRadius, ballStartPos["yellow9"], (0, 0), 1, 9, True),     # Yellow 9
     Ball("blue", ballRadius, ballStartPos["blue10"], (0, 0), 1, 10, True),       # Blue 10
     Ball("red", ballRadius, ballStartPos["red11"], (0, 0), 1, 11, True),         # Red 11
     Ball("purple", ballRadius, ballStartPos["purple12"], (0, 0), 1, 12, True),   # Purple 12
@@ -253,7 +329,6 @@ for i in balls:
 pygame.display.set_caption(borderName)
 screen = pygame.display.set_mode(resolution) # Sets up the display
 clock = pygame.time.Clock()
-
 
 # Game Loop
 while True:
@@ -310,6 +385,9 @@ while True:
         for j in range(3):
             pygame.draw.line(screen, "white", tableRails[i][j],tableRails[i][j+1])
 
+    # Update Slider
+    ballPowerSlider.update()
+
     ballMoving = False # sets initial case to False
     ballGroup.update() # update each ball
     for ball in ballGroup.sprites():
@@ -324,23 +402,53 @@ while True:
         pygame.draw.line(screen, "red", balls[0].pos, pygame.mouse.get_pos(), 2) # draw cue
         if mouseDown: # when clicked
             mousePos = pygame.mouse.get_pos() # get mouse position
-            mouseVec = VEC(balls[0].pos[0]-mousePos[0],balls[0].pos[1]-mousePos[1]) # vector of line
-            balls[0].velocity = mouseVec.normalize()*20 # normalise vector and give ball a magnitude
+            if tableCorners[0][0] <= mousePos[0] <= tableCorners[1][0] \
+                and tableCorners[0][1] <= mousePos[1] <= tableCorners[2][1]: # if mouse is on the pool table
+                mouseVec = VEC(balls[0].pos[0]-mousePos[0],balls[0].pos[1]-mousePos[1]) # vector of line
+                balls[0].velocity = mouseVec.normalize()*20*ballPowerSlider.returnValue() # normalise vector and give ball a magnitude
 
     # Checks collision between every pair of balls
     for i in range(len(ballGroup)):
         for j in range(i + 1, len(ballGroup)):
             ballGroup.sprites()[i].checkResolveCollision(ballGroup.sprites()[j])
 
-    # FPS Display
-    currentFPS = str(round(clock.get_fps(), 1))
-    text = fpsFont.render((str(currentFPS)), True, "white")
-    screen.blit(text, (5, 3))
+
+    # Draw 15 balls on screen for UI (NOT ON TABLE)
+    increment = 0 # adds a value on each time so the balls are not drawn on top of each other
+    distanceBetweenBalls = tableDimensions[0]/(len(ballInfo)-2)
+    for i in range(len(ballInfo)-1): # loops through each ball except white ball
+        circleCentre = (tableCorners[0][0] + increment, tableCorners[2][1]+75) # coordinates of each circle
+
+        pygame.draw.circle(screen, ballInfo[i+1][0], circleCentre, 25)
+        numberFont = ballUIFont.render(str(ballInfo[i+1][1]),True,"black") # renders font
+        pygame.draw.circle(screen, "white", circleCentre, numberFont.get_height()/2.2) # draws inner circle
+        numberFontPos = [circleCentre[0] - numberFont.get_width()/2,circleCentre[1] - numberFont.get_height()/2]# offsets the font to be central with ball
+        screen.blit(numberFont,numberFontPos) # adds font to screen 
+        
+        potted = True # set inital case to True
+        for ball in ballGroup:
+            if ball.number == ballInfo[i+1][1]: # If the ball still exists
+                potted = False # do not draw X
+        if potted: # if ball does not exist on table
+            xFont = ballPottedFont.render("X",True,"red") # render font
+            xFontPos = [circleCentre[0] - xFont.get_width()/2,circleCentre[1] - xFont.get_height()/2] # centre font
+            screen.blit(xFont, xFontPos) # draw ball
+        
+        increment += distanceBetweenBalls
 
     # Logo display
     logo = logoFont.render(("BILLIARD CLUB"), True, "white")
     logo = pygame.transform.rotate(logo,270)
     screen.blit(logo, (resolution[0] - logo.get_width() - 30, centre[1]-logo.get_height()/2))
-
+    
+    # Draw slider
+    ballPowerSlider.draw(screen)
+    
+    # FPS Display
+    currentFPS = str(round(clock.get_fps(), 1))
+    text = fpsFont.render((str(currentFPS)), True, "white")
+    screen.blit(text, (5, 3))
+    
+    
     pygame.display.flip() # Updates the display
     clock.tick(FPS) # Caps the frame rate
