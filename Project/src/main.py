@@ -322,6 +322,7 @@ balls = [
     Ball("maroon", ballRadius, ballStartPos["maroon15"], (0, 0), 1, 15, True),   # Maroon 15
 ]
 
+
 for i in balls:
     ballGroup.add(i)
 
@@ -330,60 +331,68 @@ pygame.display.set_caption(borderName)
 screen = pygame.display.set_mode(resolution) # Sets up the display
 clock = pygame.time.Clock()
 
+# Functions
+def checkIfBallMoving(): # Checks if any ball is moving (returns True if any ball is moving)
+    ballMoving = False # sets initial case to False
+    for ball in ballGroup.sprites():
+        if ball.velocity != (0,0): # checks if the ball is completely still
+            ballMoving = True # if even one ball is still moving, it is set to True.
+    return ballMoving
 
-# FUNCTION NEEDS WORK HERE:
+def distanceToClosestBall(intialPos): # returns distance from closest ball
+    closestDistance = float("inf") # sets initial value to infinity
+    otherBall = None # sets initial value to none
+    for ball in ballGroup.sprites(): # loops through every ball (except whiteball)
+        if ball.number != 0: # skip if the ball is itself (white)
+            distance = VEC(intialPos).distance_to(ball.pos) # finds the distance between the ball and the whiteball
+            if distance < closestDistance: # if the new distance is smaller, set the new distance to the actual distance
+                closestDistance = distance
+                otherBall = ball
+    return closestDistance, otherBall # return the distance and then the instance of the other ball 
 
-def calcPOI(railStart, railEnd, ballPos, projectionVec): 
-    # calculates the projected point of intersection between the ball and the rails
-    railVec = VEC(railEnd) - VEC(railStart) # Vector of the rail edge
-    railStartToBallVec = VEC(ballPos) - VEC(railStart) # vector of the start of rail to the ball
-    # since projection vector is normalised, the magnitude must increase to become the second line segment
-    projectionVec = projectionVec * 100000 
-    denominator = VEC.cross(railVec, projectionVec) # separates calculation to avoid div by 0
-    if denominator != 0:
-        # solve the intersection between the two vectors parametrically 
-        # (i.e t and s should be within 0 and 1 if line segments are colliding)
-        t = VEC.cross(railStartToBallVec, projectionVec) / denominator
-        s = VEC.cross(railStartToBallVec, railVec) / denominator
-        # Check if intersection is within the two line line segments
-        if 0 <= t <= 1 and 0 <= s <= 1:  # if t and s in [0, 1] means line segments collide
-            return (railStart[0] + t * railVec[0], railStart[1] + t * railVec[1]) # return coordinates of point
-    return None
-
-
-def checkVirtualCollisionRail(position, radius):
+def distanceToClosestRail(intialPos): # returns distance from closest rail
+    closestDistance = float("inf") # sets initial value to infinity
+    railVec = None
+    # Loops through each of the Rails (where collisions should be done)
     for i in tableRails:
-            for j in range(3):
-                lineStart = tableRails[i][j] # Coordinates of the Line Start and End
-                lineEnd = tableRails[i][j+1] # e.g. [ [x1,y1] , [x2,y2] ]
-                lineVec = VEC(lineEnd[0] - lineStart[0], lineEnd[1] - lineStart[1]) # Vector of the Line
-                circleVec = VEC(position[0] - lineStart[0], position[1] - lineStart[1]) # Vector of the circle to the start of the line
-                t = max(0, min(1, (circleVec[0] * lineVec[0] + circleVec[1] * lineVec[1]) / lineVec.magnitude_squared()))
-                # This creates a parameter that will calculate the s.f of the normal projection that maps the circle onto the line segment
-                linePoint = (lineStart[0] + t * lineVec[0], lineStart[1] + t * lineVec[1]) # Calculate closest point on the line to the circle
-                circlePointVec = VEC(linePoint[0] - position[0], linePoint[1] - position[1]) # Vector of the circle to the closest point
-                distance = circlePointVec.magnitude() # calculates distance between the circle and closest point
+        for j in range(3):
+            lineStart = tableRails[i][j] # Coordinates of the Line Start and End
+            lineEnd = tableRails[i][j+1] # e.g. [ [x1,y1] , [x2,y2] ]
+            lineVec = VEC(lineEnd[0] - lineStart[0], lineEnd[1] - lineStart[1]) # Vector of the Line
+            pointVec = VEC(intialPos[0] - lineStart[0], intialPos[1] - lineStart[1]) # Vector of the circle to the start of the line
+            dot = VEC.dot(pointVec,lineVec) # finds the dot product of the vectors
+            # This creates a parameter that will calculate the s.f of the normal projection that maps the circle onto the line segment
+            t = max(0, min(1, dot / lineVec.magnitude_squared()))
+            linePoint = (lineStart[0] + t * lineVec[0], lineStart[1] + t * lineVec[1]) # Calculate closest point on the line to the circle
+            circlePointVec = VEC(linePoint[0] - intialPos[0], linePoint[1] - intialPos[1]) # Vector of the circle to the closest point
+            distance = circlePointVec.magnitude() # calculates distance between the circle and closest point
+            
+            # if the new distance is smaller, set the new distance to the actual distance
+            if distance < closestDistance: 
+                closestDistance = distance
+                railVec = lineVec
+
+    return closestDistance, railVec  # returns the distance to the rail and the vector of the rail  
+
+
+def resolveAllCollisions(): # Checks and resolves every collision between every pair of balls (only if colliding)
+    for i in range(len(ballGroup) - 1):
+        for j in range(i + 1, len(ballGroup)): # except white ball
+            ballGroup.sprites()[i].checkResolveCollision(ballGroup.sprites()[j])
+
+def resolveWallCollisions(): # Checks and resolves every collision between every ball and the walls
+    for ball in ballGroup.sprites():
+        ball.checkResolveWallCollision() # checks wall collisions
+
+def resolveBallPotted(): # Checks if a ball is potted
+    for ball in ballGroup.sprites():
+        if ball.checkHoleCollision(): # checks if each ball is in a hole
+            ball.delete() # removes the ball from the game
+        ball.draw(screen) # draws each ball
+
+
+def drawTable(): # Draws the table
     
-                # Check if colliding
-                if distance < radius:
-                    return True
-    
-    return False
-
-
-# Game Loop
-while True:
-    mouseDown = False
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT: # Checks if user closes program
-            pygame.quit()
-            exit()
-
-        if event.type == pygame.MOUSEBUTTONDOWN: # on left click
-            mouseDown = True
-
-    screen.fill((30, 30, 30)) # Fills the screen with a grey colour
-
     # Outer Ring
     pygame.draw.rect(
         screen,
@@ -426,78 +435,11 @@ while True:
         for j in range(3):
             pygame.draw.line(screen, "white", tableRails[i][j],tableRails[i][j+1])
 
-    # Update Slider
-    ballPowerSlider.update()
-
-    ballMoving = False # sets initial case to False
-    ballGroup.update() # update each ball
+def drawBalls(): # Draws all the balls
     for ball in ballGroup.sprites():
-        if ball.velocity != (0,0): # checks if the ball is completely still
-            ballMoving = True # if even one ball is still moving, it is set to True.
-        ball.checkResolveWallCollision() # checks wall collisions
-        if ball.checkHoleCollision(): # checks if each ball is in a hole
-            ball.delete() # removes the ball from the game
-        ball.draw(screen) # draws each ball
+        ball.draw(screen)
 
-    # Cue Functions and Draws Cue
-    if not ballMoving: # when all the balls are still
-        mousePos = pygame.mouse.get_pos() # get mouse position
-        cueVec = (VEC(balls[0].pos) - VEC(mousePos)).normalize() # vector of line
-        
-        possibleCollisions = []
-        for i in tableRails: # loops through every rail (every line segment)
-            for j in range(3):
-                lineStart = tableRails[i][j] # Coordinates of the Line Start and End
-                lineEnd = tableRails[i][j+1] # e.g. [ [x1,y1] , [x2,y2] ]
-                railVec = (VEC(lineEnd) - VEC(lineStart)).normalize() # calculate vector of rail
-                intersection = calcPOI(lineStart, lineEnd, balls[0].pos, cueVec) # calculate coordinates of intersection
-                if intersection != None: # if there is a coordinate of intersection, add to list
-                    possibleCollisions.append([intersection, railVec])
-                   
-        # Get collision which is closest to ball:
-        if len(possibleCollisions) > 0: # if there is at least one collision
-            # loop through all collisions and find the one with the smallest distance
-            smallest = possibleCollisions[0]
-            for i in range(len(possibleCollisions)-1):
-                smallestDistance = VEC(smallest[0]).distance_squared_to(balls[0].pos)
-                currentDistance = VEC(possibleCollisions[i+1][0]).distance_squared_to(balls[0].pos)
-                if smallestDistance > currentDistance:
-                    smallest = possibleCollisions[i+1]
-            intersection = VEC(smallest[0])
-            railVec = VEC(smallest[1])
-        else: # if no collision, set to None
-            intersection = None
-
-        if intersection != None: # if there is a coordinate of intersection, draw a circle
-            virtualBallPos = intersection # find projected ball pos
-            
-            colliding = checkVirtualCollisionRail(virtualBallPos, ballRadius) # check if ball colliding
-            while colliding: 
-                virtualBallPos -= cueVec # adjust ball position until it is not colliding
-                colliding = checkVirtualCollisionRail(virtualBallPos, ballRadius) # check if ball colliding again
-
-            pygame.draw.circle(screen, "white", virtualBallPos, ballRadius, 2) # draw virtual ball
-            pygame.draw.line(screen, "white", balls[0].pos, virtualBallPos) # draw projection
-
-            # Finds reflected projection vector from the table rails:
-            reflectedCueVec = VEC(cueVec - 2*(VEC.dot(cueVec, railVec))*railVec).normalize()
-            # draw projection after rail collision
-            pygame.draw.line(screen, "white", virtualBallPos, (virtualBallPos-50*reflectedCueVec))
-
-        pygame.draw.line(screen, "red", balls[0].pos, pygame.mouse.get_pos(), 2) # draw cue
-        
-        if mouseDown: # when clicked
-            if tableCorners[0][0] <= mousePos[0] <= tableCorners[1][0] \
-                and tableCorners[0][1] <= mousePos[1] <= tableCorners[2][1]: # if mouse is on the pool table
-                balls[0].velocity = cueVec*20*ballPowerSlider.returnValue() # give ball a velocity
-
-    # Checks collision between every pair of balls
-    for i in range(len(ballGroup)):
-        for j in range(i + 1, len(ballGroup)): # except white ball
-            ballGroup.sprites()[i].checkResolveCollision(ballGroup.sprites()[j])
-
-
-    # Draw 15 balls on screen for UI (NOT ON TABLE)
+def drawBallUI(): # Draw 15 balls on screen for UI (NOT ON TABLE)
     increment = 0 # adds a value on each time so the balls are not drawn on top of each other
     distanceBetweenBalls = tableDimensions[0]/(len(ballInfo)-2)
     for i in range(len(ballInfo)-1): # loops through each ball except white ball
@@ -519,19 +461,110 @@ while True:
             screen.blit(xFont, xFontPos) # draw ball
         
         increment += distanceBetweenBalls
-
-    # Logo display
+ 
+def drawLogo(): # Draws the logo 
     logo = logoFont.render(("BILLIARD CLUB"), True, "white")
-    logo = pygame.transform.rotate(logo,270)
+    logo = pygame.transform.rotate(logo, 270)
     screen.blit(logo, (resolution[0] - logo.get_width() - 30, centre[1]-logo.get_height()/2))
-    
-    # Draw slider
-    ballPowerSlider.draw(screen)
-    
-    # FPS Display
+
+def drawFPS(): # FPS Display
     currentFPS = str(round(clock.get_fps(), 1))
     text = fpsFont.render((str(currentFPS)), True, "white")
     screen.blit(text, (5, 3))
+
+def drawCue(): # draws the cue
+    mousePos = pygame.mouse.get_pos() # get mouse position
+    cueVec = (VEC(balls[0].pos) - VEC(mousePos)).normalize() # vector of line
+    virtualBallPos = VEC(balls[0].pos) # sets initial position of virtual ball
+    
+    railDistance, closestRail = distanceToClosestRail(virtualBallPos) # updates distance to closest rail
+    ballDistance, closestBall = distanceToClosestBall(virtualBallPos) # updates distance to closest ball
+
+    # rough check for virtual ball collisions
+    maxIterations = 1000 # limits the number of iterations the initial while loop will do
+    while railDistance > ballRadius and ballDistance > 2*ballRadius and maxIterations > 0 and (
+            tableCorners[0][0] + ballRadius <= virtualBallPos[0] <= tableCorners[1][0] - ballRadius\
+            and tableCorners[0][1] + ballRadius <= virtualBallPos[1] <= tableCorners[2][1] - ballRadius
+    ): # while the ball is not close to a rail (and within the table bounds)
+        virtualBallPos += ballRadius*cueVec # get closer to rail
+        railDistance, closestRail = distanceToClosestRail(virtualBallPos) # find new distance
+        ballDistance, closestBall = distanceToClosestBall(virtualBallPos)
+        maxIterations -= 1 # decrement counter
+    
+    # if ball collides with other ball, set this to true
+    collidingWithBall = False
+    if ballDistance < 2 * ballRadius:
+        collidingWithBall = True
+    
+    # if ball collides with outer wall first or other ball, don't draw projection.
+    drawReflectedProjection = True
+    if collidingWithBall or not (tableCorners[0][0] + ballRadius <= virtualBallPos[0] <= tableCorners[1][0] - ballRadius\
+            and tableCorners[0][1] + ballRadius <= virtualBallPos[1] <= tableCorners[2][1] - ballRadius):
+        drawReflectedProjection = False
+
+    # finer adjustment for virtual ball collisions
+    while railDistance < ballRadius or ballDistance < 2*ballRadius or not (
+            tableCorners[0][0] + ballRadius <= virtualBallPos[0] <= tableCorners[1][0] - ballRadius\
+            and tableCorners[0][1] + ballRadius <= virtualBallPos[1] <= tableCorners[2][1] - ballRadius
+    ): # while the ball is colliding with a rail or out of the table bounds
+        virtualBallPos -= cueVec # move the ball back by a very small amount
+        railDistance, closestRail = distanceToClosestRail(virtualBallPos) # find new distance
+        ballDistance, closestBall = distanceToClosestBall(virtualBallPos)
+
+    pygame.draw.line(screen, "red", balls[0].pos, pygame.mouse.get_pos(), 2) # draw cue
+    pygame.draw.circle(screen, "white", virtualBallPos, ballRadius, 2) # draw virtual ball
+    pygame.draw.line(screen, "white", balls[0].pos, virtualBallPos) # draw projection
+
+    if collidingWithBall:
+        virtualBallVec = (virtualBallPos - closestBall.pos).normalize() # vector of virtual ball to other ball
+        pygame.draw.circle(screen, "white", closestBall.pos, ballRadius, 3) # draw virtual ball
+        pygame.draw.line(screen, "white", closestBall.pos, (closestBall.pos-50*virtualBallVec)) # draw reflected projection
+        
+    if drawReflectedProjection: # only draw if ball did not collide with outer wall
+        reflectedCueVec = VEC(cueVec - 2*(VEC.dot(cueVec, closestRail)/VEC.dot(
+            closestRail, closestRail))*closestRail).normalize() # calculated reflected vector projection
+        pygame.draw.line(screen, "white", virtualBallPos, (virtualBallPos-50*reflectedCueVec)) # draw reflected projection
+    
+    if mouseDown: # when clicked
+        if tableCorners[0][0] <= mousePos[0] <= tableCorners[1][0] \
+            and tableCorners[0][1] <= mousePos[1] <= tableCorners[2][1]: # if mouse is on the pool table
+            balls[0].velocity = cueVec*20*ballPowerSlider.returnValue() # give ball a velocity
+
+
+# Game Loop
+while True:
+    mouseDown = False
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT: # Checks if user closes program
+            pygame.quit()
+            exit()
+
+        if event.type == pygame.MOUSEBUTTONDOWN: # on left click
+            mouseDown = True
+
+    ballPowerSlider.update() # Update Slider
+    ballGroup.update() # update each ball
+    
+    resolveAllCollisions() # Checks and resolves every collision between every pair of balls (only if colliding)
+    resolveWallCollisions() # Checks and resolves every collision between every ball and the walls
+    resolveBallPotted() # checks if a ball is potted and deletes it if it is.
+    
+    # Draw Everything to Screen:
+    
+    screen.fill((30, 30, 30)) # Fills the screen with a grey colour
+    
+    drawTable() # Draws the table
+    drawBalls() # draws the balls
+    
+    if not checkIfBallMoving(): # when all the balls are still
+        drawCue() # draw the cue
+    
+    ballPowerSlider.draw(screen) # Draws slider
+
+    drawBallUI() # draws the ball UI (15 balls that tells the user which ball to pot next)
+    drawLogo() # draws the logo
+    drawFPS() # draws the FPS
+
     
     pygame.display.flip() # Updates the display
     clock.tick(FPS) # Caps the frame rate
