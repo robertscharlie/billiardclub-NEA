@@ -21,12 +21,20 @@ centre = (resolution[0]//2, resolution[1]//2)
 holeRadius = 15
 ballRadius = 12
 
+player1Colour = "red"
+player2Colour = "blue"
+
+# Global Variables
+global player1Turn
+player1Turn = True # initially player 1's turn
+
 # Fonts
 ballFont = pygame.font.SysFont("dubaimedium", int(ballRadius*0.9))
 ballUIFont = pygame.font.SysFont("dubaimedium", 18)
 fpsFont = pygame.font.SysFont("dubaimedium", 20)
 logoFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 70)
 ballPottedFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 70)
+playerIndicatorFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 60)
 
 tableCorners = (
     (centre[0] - tableDimensions[0] / 2, centre[1] - tableDimensions[1] / 2), # Top Left
@@ -103,7 +111,7 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
         self.velocity = VEC(velocity) # Velocity vector
         self.mass = mass
         self.number = number # stores the ball number, e.g. the 8 ball
-        self.isStriped = isStriped # boolean, stores whether the ball is coloured or striped
+        self.isStriped = isStriped # boolean, stores whether the ball is dotted or striped
 
     def update(self): # Updates the position of the ball
         self.pos += self.velocity # moves ball to next position
@@ -189,22 +197,32 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
     def draw(self, screen): # Draws the ball to the screen
         pygame.draw.circle(screen, self.colour, self.pos, self.radius) # draws outer circle
     
-        text = ballFont.render(str(self.number),True,"black") # renders font
+        if self.isStriped:
+            pygame.draw.circle(screen, "white", self.pos, self.radius) # draws outer circle to overlap stripe
+            # Draw the stripe
+            stripe_height = ballRadius / 0.65 # height of the stripe
+            pygame.draw.ellipse(
+                screen, 
+                self.colour, 
+                (
+                    self.pos[0] - ballRadius, 
+                    self.pos[1] - stripe_height // 2,
+                    ballRadius * 2,
+                    stripe_height
+                )
+            )
 
+        text = ballFont.render(str(self.number),True,"black") # renders font
         pygame.draw.circle(screen, "white", self.pos, text.get_height()/2.2) # draws inner circle
         
-        fontPos = [ # offsets the font to be central with ball
-            self.pos[0] - text.get_width()/2,
-            self.pos[1] - text.get_height()/2
-        ]
-
+        fontPos = [self.pos[0] - text.get_width()/2,self.pos[1] - text.get_height()/2] # offsets the font to be central with ball
+        
         screen.blit(text,fontPos) # adds font to screen
 
         # COMPILE ALL DRAWINGS INTO ONE BLIT
 
     def delete(self):
-        if self.colour != "white": # delete later
-            self.kill()
+        self.kill()
 
 # Slider Class
 class Slider(pygame.sprite.Sprite):
@@ -257,14 +275,14 @@ class Slider(pygame.sprite.Sprite):
     def returnValue(self): # returns slider position value
         return round(1-self.value, 3)
 
-
-ballPowerSlider = Slider("white", "red", (tableCorners[0][0]/2 - 30,tableCorners[0][1]-30), 30, tableDimensions[1]+60, 0.5) # initialise slider sprite
+# initialise slider sprite
+ballPowerSlider = Slider("white", "red", (tableCorners[0][0]/2 - 30,tableCorners[0][1]-30), 30, tableDimensions[1] + 60, 0.5) 
 
 ballGroup = pygame.sprite.Group() # Groups all balls for easier maintenance
 
 # Ball info
 ballInfo = ( # COLOUR, NUMBER, STRIPED
-    ("white", 0, False),
+    ("white", 0, None),
     ("yellow", 1, False),
     ("blue", 2, False),
     ("red", 3, False),
@@ -272,7 +290,7 @@ ballInfo = ( # COLOUR, NUMBER, STRIPED
     ("orange", 5, False),
     ("green", 6, False),
     ("maroon", 7, False),
-    ("black", 8, False),
+    ("black", 8, None),
     ("yellow", 9, True),
     ("blue", 10, True),
     ("red", 11, True),
@@ -304,7 +322,7 @@ ballStartPos = {
 
 # Instantiate each ball
 balls = [
-    Ball("white", ballRadius, ballStartPos["white0"], (0, 0), 1, 0, False),      # Whiteball
+    Ball("white", ballRadius, ballStartPos["white0"], (0, 0), 1, 0, None),      # Whiteball
     Ball("yellow", ballRadius, ballStartPos["yellow1"], (0, 0), 1, 1, False),    # Yellow 1
     Ball("blue", ballRadius, ballStartPos["blue2"], (0, 0), 1, 2, False),        # Blue 2
     Ball("red", ballRadius, ballStartPos["red3"], (0, 0), 1, 3, False),          # Red 3
@@ -312,7 +330,7 @@ balls = [
     Ball("orange", ballRadius, ballStartPos["orange5"], (0, 0), 1, 5, False),    # Orange 5
     Ball("green", ballRadius, ballStartPos["green6"], (0, 0), 1, 6, False),      # Green 6
     Ball("maroon", ballRadius, ballStartPos["maroon7"], (0, 0), 1, 7, False),    # Maroon 7
-    Ball("black", ballRadius, ballStartPos["black8"], (0, 0), 1, 8, False),      # Black 8
+    Ball("black", ballRadius, ballStartPos["black8"], (0, 0), 1, 8, None),      # Black 8
     Ball("yellow", ballRadius, ballStartPos["yellow9"], (0, 0), 1, 9, True),     # Yellow 9
     Ball("blue", ballRadius, ballStartPos["blue10"], (0, 0), 1, 10, True),       # Blue 10
     Ball("red", ballRadius, ballStartPos["red11"], (0, 0), 1, 11, True),         # Red 11
@@ -322,8 +340,7 @@ balls = [
     Ball("maroon", ballRadius, ballStartPos["maroon15"], (0, 0), 1, 15, True),   # Maroon 15
 ]
 
-
-for i in balls:
+for i in balls: # adds each ball to the group
     ballGroup.add(i)
 
 # Pygame Functions
@@ -374,10 +391,9 @@ def distanceToClosestRail(intialPos): # returns distance from closest rail
 
     return closestDistance, railVec  # returns the distance to the rail and the vector of the rail  
 
-
 def resolveAllCollisions(): # Checks and resolves every collision between every pair of balls (only if colliding)
     for i in range(len(ballGroup) - 1):
-        for j in range(i + 1, len(ballGroup)): # except white ball
+        for j in range(i, len(ballGroup)):
             ballGroup.sprites()[i].checkResolveCollision(ballGroup.sprites()[j])
 
 def resolveWallCollisions(): # Checks and resolves every collision between every ball and the walls
@@ -387,9 +403,101 @@ def resolveWallCollisions(): # Checks and resolves every collision between every
 def resolveBallPotted(): # Checks if a ball is potted
     for ball in ballGroup.sprites():
         if ball.checkHoleCollision(): # checks if each ball is in a hole
-            ball.delete() # removes the ball from the game
+            if ball.number == 0: # if the white ball is potted
+                gameQueue.append(resetWhiteBall) # tells the game to reset the white ball on the start of the round
+                balls[0].velocity = VEC(0,0) # resets the velocity of the white ball
+                balls[0].pos = VEC(0,0) # resets the position of the white ball
+
+            else:
+                # On first run, set the ball type for each player
+                global player1BallType, player2BallType
+                if player1BallType == None and player2BallType == None: 
+                    if ball.isStriped and player1Turn or not ball.isStriped and not player1Turn:
+                        player1BallType = "striped"
+                        player2BallType = "dotted"
+                    elif ball.isStriped and not player1Turn or not ball.isStriped and player1Turn:
+                        player1BallType = "dotted"
+                        player2BallType = "striped"
+                    else:
+                        print("Error: Ball type not set")
+                    
+                pottedBallInfo = [ball.number, ball.isStriped] # collects information about the potted ball
+
+                pottedBalls.append(pottedBallInfo) # adds the ball number to the list of potted balls
+                roundPottedBalls.append(pottedBallInfo) # adds the ball number to the list of the round's potted balls
+
+                ball.delete() # removes the ball from the game
+        
         ball.draw(screen) # draws each ball
 
+def resetWhiteBall(): # resets the white ball
+    balls[0].pos = ballStartPos["white0"] # resets the position of the white ball
+
+def gameLogic(): # determines state of next round on all factors
+    global player1Turn
+    global player1BallType
+    global player2BallType
+    global pottedBalls
+    global roundPottedBalls
+    global gameQueue
+    global winner
+
+    changeTurn = False # set initial case to False
+    eightBallPotted = False # set initial case to False
+
+    if len(roundPottedBalls) == 0: # if no balls are potted
+        changeTurn = True # switch turns
+    else:
+        for i in roundPottedBalls: # loop through each ball potted
+            number = i[0]
+            isStriped = i[1]
+    
+            if number == 8: # if the 8 ball is potted
+                eightBallPotted = True # set case to True
+
+            if player1Turn: # if it is player 1's turn
+                if player1BallType == "dotted": # if player 1 type is dotted
+                    if isStriped: # if the ball is striped
+                        changeTurn = True
+                elif player1BallType == "striped": # if player 1 type is striped
+                    if not isStriped: # if the ball is dotted
+                        changeTurn = True
+            if not player1Turn: # if it is player 2's turn
+                if player2BallType == "dotted": # if player 2 type is dotted
+                    if isStriped: # if the ball is striped
+                        changeTurn = True
+                elif player2BallType == "striped": # if player 2 type is striped
+                    if not isStriped: # if the ball is dotted
+                        changeTurn = True
+
+    if eightBallPotted: # if the 8 ball is potted
+        # check if all other balls are potted.
+        dottedPotted = 0
+        stripedPotted = 0
+        # count the number of potted balls from each type
+        for i in pottedBalls: 
+            if i[1]:
+                stripedPotted += 1
+            else:
+                dottedPotted += 1
+        
+        if dottedPotted == 7 or stripedPotted == 7:
+            # whoever potted the 8 ball wins
+            if player1Turn:
+                winner = "Player 1"
+            else:
+                winner = "Player 2"
+        else:
+            # whoever potted the 8 ball loses
+            if player1Turn:
+                winner = "Player 2"
+            else:
+                winner = "Player 1"
+                
+    if changeTurn: # if the turn is to be changed
+        player1Turn = not player1Turn # switch turns
+    
+    roundPottedBalls = [] # resets the list of potted balls
 
 def drawTable(): # Draws the table
     
@@ -442,10 +550,28 @@ def drawBalls(): # Draws all the balls
 def drawBallUI(): # Draw 15 balls on screen for UI (NOT ON TABLE)
     increment = 0 # adds a value on each time so the balls are not drawn on top of each other
     distanceBetweenBalls = tableDimensions[0]/(len(ballInfo)-2)
+    largerBallRadius = 25
+
     for i in range(len(ballInfo)-1): # loops through each ball except white ball
         circleCentre = (tableCorners[0][0] + increment, tableCorners[2][1]+75) # coordinates of each circle
 
-        pygame.draw.circle(screen, ballInfo[i+1][0], circleCentre, 25)
+        pygame.draw.circle(screen, ballInfo[i+1][0], circleCentre, largerBallRadius) # draws outer circle
+
+        if ballInfo[i+1][2]:
+            pygame.draw.circle(screen, "white", circleCentre, largerBallRadius) # draws outer circle to overlap stripe
+            # Draw the stripe
+            stripe_height = largerBallRadius / 0.65 # height of the stripe
+            pygame.draw.ellipse(
+                screen, 
+                ballInfo[i+1][0], 
+                (
+                    circleCentre[0] - largerBallRadius, 
+                    circleCentre[1] - stripe_height // 2,
+                    largerBallRadius * 2,
+                    stripe_height
+                )
+            )
+
         numberFont = ballUIFont.render(str(ballInfo[i+1][1]),True,"black") # renders font
         pygame.draw.circle(screen, "white", circleCentre, numberFont.get_height()/2.2) # draws inner circle
         numberFontPos = [circleCentre[0] - numberFont.get_width()/2,circleCentre[1] - numberFont.get_height()/2]# offsets the font to be central with ball
@@ -461,7 +587,30 @@ def drawBallUI(): # Draw 15 balls on screen for UI (NOT ON TABLE)
             screen.blit(xFont, xFontPos) # draw ball
         
         increment += distanceBetweenBalls
- 
+
+    line1start = (tableCorners[0][0] - largerBallRadius, circleCentre[1] - largerBallRadius - 10)
+    line1end = (centre[0] - distanceBetweenBalls + largerBallRadius, circleCentre[1] - largerBallRadius - 10)
+
+    line2start = (tableCorners[3][0] + largerBallRadius, circleCentre[1] - largerBallRadius - 10)
+    line2end = (centre[0] + distanceBetweenBalls - largerBallRadius, circleCentre[1] - largerBallRadius - 10)
+
+    line3start = (tableCorners[0][0] - largerBallRadius, circleCentre[1] + largerBallRadius + 10)
+    line3end = (centre[0] - distanceBetweenBalls + largerBallRadius, circleCentre[1] + largerBallRadius + 10)
+
+    line4start = (tableCorners[3][0] + largerBallRadius, circleCentre[1] + largerBallRadius + 10)
+    line4end = (centre[0] + distanceBetweenBalls - largerBallRadius, circleCentre[1] + largerBallRadius + 10)
+
+    if player1BallType == "dotted":
+        pygame.draw.line(screen, player1Colour, line1start, line1end, 5) # draw lines of player 1
+        pygame.draw.line(screen, player1Colour, line3start, line3end, 5) # draw lines of player 1
+        pygame.draw.line(screen, player2Colour, line2start, line2end, 5) # draw line of player 2
+        pygame.draw.line(screen, player2Colour, line4start, line4end, 5) # draw line of player 2
+    elif player1BallType == "striped":
+        pygame.draw.line(screen, player2Colour, line1start, line1end, 5) # draw lines of player 2
+        pygame.draw.line(screen, player2Colour, line3start, line3end, 5) # draw lines of player 2
+        pygame.draw.line(screen, player1Colour, line2start, line2end, 5) # draw line of player 1
+        pygame.draw.line(screen, player1Colour, line4start, line4end, 5) # draw line of player 1
+
 def drawLogo(): # Draws the logo 
     logo = logoFont.render(("BILLIARD CLUB"), True, "white")
     logo = pygame.transform.rotate(logo, 270)
@@ -511,29 +660,91 @@ def drawCue(): # draws the cue
         railDistance, closestRail = distanceToClosestRail(virtualBallPos) # find new distance
         ballDistance, closestBall = distanceToClosestBall(virtualBallPos)
 
-    pygame.draw.line(screen, "red", balls[0].pos, pygame.mouse.get_pos(), 2) # draw cue
-    pygame.draw.circle(screen, "white", virtualBallPos, ballRadius, 2) # draw virtual ball
+    cueColour = "" # set colour of cue
+    if player1Turn:
+        cueColour = player1Colour
+    else:
+        cueColour = player2Colour
+
+    virtualBallColour = "white" # set colour of virtual ball
+    if collidingWithBall:
+
+        if closestBall.number == 8: # if the ball is the 8 ball
+            virtualBallColour = "red" # set colour to black
+
+        if player1Turn: # if it is player 1's turn
+            if player1BallType == "dotted": # if player 1 type is dotted
+                if closestBall.isStriped: # if the ball is striped
+                    virtualBallColour = "red" # set colour to red
+            elif player1BallType == "striped": # if player 1 type is striped
+                if not closestBall.isStriped: # if the ball is dotted
+                    virtualBallColour = "red" # set colour to red
+        if not player1Turn: # if it is player 2's turn
+            if player2BallType == "dotted": # if player 2 type is dotted
+                if closestBall.isStriped: # if the ball is striped
+                    virtualBallColour = "red" # set colour to red
+            elif player2BallType == "striped": # if player 2 type is striped
+                if not closestBall.isStriped: # if the ball is dotted
+                    virtualBallColour = "red" # set colour to red
+
+    pygame.draw.line(screen, cueColour, balls[0].pos, pygame.mouse.get_pos(), 2) # draw cue
+    pygame.draw.circle(screen, virtualBallColour, virtualBallPos, ballRadius, 2) # draw virtual ball
     pygame.draw.line(screen, "white", balls[0].pos, virtualBallPos) # draw projection
 
     if collidingWithBall:
         virtualBallVec = (virtualBallPos - closestBall.pos).normalize() # vector of virtual ball to other ball
-        pygame.draw.circle(screen, "white", closestBall.pos, ballRadius, 3) # draw virtual ball
-        pygame.draw.line(screen, "white", closestBall.pos, (closestBall.pos-50*virtualBallVec)) # draw reflected projection
+        pygame.draw.circle(screen, virtualBallColour, closestBall.pos, ballRadius, 3) # draw virtual ball
+        pygame.draw.line(screen, virtualBallColour, closestBall.pos, (closestBall.pos-50*virtualBallVec)) # draw reflected projection
         
     if drawReflectedProjection: # only draw if ball did not collide with outer wall
         reflectedCueVec = VEC(cueVec - 2*(VEC.dot(cueVec, closestRail)/VEC.dot(
             closestRail, closestRail))*closestRail).normalize() # calculated reflected vector projection
-        pygame.draw.line(screen, "white", virtualBallPos, (virtualBallPos-50*reflectedCueVec)) # draw reflected projection
-    
+        pygame.draw.line(screen, virtualBallColour, virtualBallPos, (virtualBallPos-50*reflectedCueVec)) # draw reflected projection
+
     if mouseDown: # when clicked
         if tableCorners[0][0] <= mousePos[0] <= tableCorners[1][0] \
             and tableCorners[0][1] <= mousePos[1] <= tableCorners[2][1]: # if mouse is on the pool table
             balls[0].velocity = cueVec*20*ballPowerSlider.returnValue() # give ball a velocity
 
+def drawPlayerIndicator(): # Draws the player indicator
+    # render font
+    player1Text = playerIndicatorFont.render(("Player 1"), True, "red")
+    vsText = playerIndicatorFont.render(("vs"), True, "white")
+    player2Text = playerIndicatorFont.render(("Player 2"), True, "blue")
+    
+    player1arrowText = playerIndicatorFont.render(("=>"), True, "white")
+    player2arrowText = playerIndicatorFont.render(("<="), True, "white")
+
+    # draw font to screen
+    screen.blit(player1Text, (centre[0] - player1Text.get_width() - vsText.get_width(), 10))
+    screen.blit(vsText, (centre[0] - vsText.get_width()/2, 10))
+    screen.blit(player2Text, (centre[0] + vsText.get_width(), 10))
+
+    if player1Turn:
+        screen.blit(player1arrowText, (centre[0] - player1Text.get_width() - vsText.get_width() - player1arrowText.get_width()*1.5, 10))
+    else:
+        screen.blit(player2arrowText, (centre[0] + player2Text.get_width() + vsText.get_width() + player2arrowText.get_width()/2, 10))
+
+def checkWin(winner): # checks if there is a winner
+    if winner != None: # if there is a winner
+        winText = logoFont.render(winner + " wins!",True,"white") # renders the font
+        winTextPos = [centre[0] - winText.get_width()/2, centre[1] - winText.get_height()/2] # offsets the font to be central
+        screen.blit(winText,winTextPos) # adds font to screen   
+
+gameQueue = [] # Queue/List for storing events in between each turn.
+
+pottedBalls = [] # List for storing potted balls in whole game
+roundPottedBalls = [] # List for storing potted balls in each round
+
+player1BallType = None # Stores the type of balls player 1 is potting
+player2BallType = None # Stores the type of balls player 2 is potting
+
+winner = None
 
 # Game Loop
 while True:
     mouseDown = False
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT: # Checks if user closes program
             pygame.quit()
@@ -548,23 +759,36 @@ while True:
     resolveAllCollisions() # Checks and resolves every collision between every pair of balls (only if colliding)
     resolveWallCollisions() # Checks and resolves every collision between every ball and the walls
     resolveBallPotted() # checks if a ball is potted and deletes it if it is.
-    
+
+
     # Draw Everything to Screen:
     
     screen.fill((30, 30, 30)) # Fills the screen with a grey colour
     
     drawTable() # Draws the table
     drawBalls() # draws the balls
-    
+
     if not checkIfBallMoving(): # when all the balls are still
-        drawCue() # draw the cue
-    
+        # execute all functions/procedures in the queue
+        for function in gameQueue:
+            function() # execute the event
+            print(function)
+        gameQueue.clear() # clear the queue
+
+        drawCue() # draw the cue and give velocity to the white ball if clicked
+
+        # if the ball has been hit 
+        if checkIfBallMoving():
+            gameQueue.append(gameLogic) # when the balls are next still, apply game logic to determine the next round.
+
+
     ballPowerSlider.draw(screen) # Draws slider
 
     drawBallUI() # draws the ball UI (15 balls that tells the user which ball to pot next)
     drawLogo() # draws the logo
     drawFPS() # draws the FPS
+    drawPlayerIndicator() # draws the player indicator
+    checkWin(winner) # checks if there is a winner and draws it to the screen
 
-    
     pygame.display.flip() # Updates the display
     clock.tick(FPS) # Caps the frame rate
