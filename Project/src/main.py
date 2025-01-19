@@ -23,10 +23,13 @@ ballRadius = 12
 
 player1Colour = "red"
 player2Colour = "blue"
+computerPlaying = True # Set to True if you want the computer to play
 
 # Global Variables
-global player1Turn
 player1Turn = True # initially player 1's turn
+player1BallType = None # Stores the type of balls player 1 is potting
+player2BallType = None # Stores the type of balls player 2 is potting
+winner = None # Stores the winner of the game
 
 # Fonts
 ballFont = pygame.font.SysFont("dubaimedium", int(ballRadius*0.9))
@@ -139,15 +142,30 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
 
     def checkResolveCollision(self, other): # Check if balls are colliding, then resolves collision
         # Check if balls colliding
-        posDifference = self.pos - other.pos # find difference in positions
-        distanceSquared = self.pos.distance_squared_to(other.pos) # distance squared between points
+        def checkColliding(self, other):
+            posDifference = self.pos - other.pos # find difference in positions
+            distance = self.pos.distance_to(other.pos) # distance squared between points
+            if distance == 0: # prevents normalisation error
+                return False, posDifference
+            elif distance < (self.radius + other.radius): # If colliding
+                return True, posDifference
+            return False, posDifference
 
-        if distanceSquared == 0: # prevents normalisation error
-            return
+        colliding, posDifference = checkColliding(self,other) # checks if colliding
+        calculateCollision = False # set initial case to False
+        
+        if colliding: 
+            calculateCollision = True # calculate collision at the end
+            self.pos -= self.velocity # step back position of both balls
+            other.pos -= other.velocity # step back position of both balls
+            colliding, posDifference = checkColliding(self,other) # checks if colliding
+            while not colliding: # while colliding
+                    # incrementally move the balls forward until they are tangential
+                    self.pos += 0.05 * self.velocity 
+                    other.pos += 0.05 * other.velocity 
+                    colliding, posDifference = checkColliding(self,other) # checks if colliding
 
-        if distanceSquared < (self.radius + other.radius)**2: # If colliding
-            # self.pos -= self.velocity # undoes last move, to prevent clipping
-
+        if calculateCollision: # if colliding
             # Calculate Velocities after collision
             n = VEC(posDifference).normalize() # creates a normalised vector as a origin for calculations
             relVel = self.velocity - other.velocity # calculates the relative velocity of the balls
@@ -158,34 +176,49 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
 
             self.velocity *= restitutionCoeff # decreases velocity of both balls
             other.velocity *= restitutionCoeff
+        
+        while colliding: # if still colliding
+            # push balls apart to prevent sticking
+            self.pos += n
+            other.pos -= n
+            colliding, posDifference = checkColliding(self,other) # checks if still colliding
 
-            # Push out the colliding balls
-            while distanceSquared < (self.radius + other.radius)**2:
-                self.pos += n # move balls away from each other
-                other.pos -= n
-                distanceSquared = self.pos.distance_squared_to(other.pos) # distance squared between points
 
-    def checkResolveWallCollision(self):
-        # Loops through each of the Rails (where collisions should be done)
-        for i in tableRails:
-            for j in range(3):
-                lineStart = tableRails[i][j] # Coordinates of the Line Start and End
-                lineEnd = tableRails[i][j+1] # e.g. [ [x1,y1] , [x2,y2] ]
-                lineVec = VEC(lineEnd[0] - lineStart[0], lineEnd[1] - lineStart[1]) # Vector of the Line
-                circleVec = VEC(self.pos[0] - lineStart[0], self.pos[1] - lineStart[1]) # Vector of the circle to the start of the line
-                t = max(0, min(1, (circleVec[0] * lineVec[0] + circleVec[1] * lineVec[1]) / lineVec.magnitude_squared()))
-                # This creates a parameter that will calculate the s.f of the normal projection that maps the circle onto the line segment
-                linePoint = (lineStart[0] + t * lineVec[0], lineStart[1] + t * lineVec[1]) # Calculate closest point on the line to the circle
-                circlePointVec = VEC(linePoint[0] - self.pos[0], linePoint[1] - self.pos[1]) # Vector of the circle to the closest point
-                distance = circlePointVec.magnitude() # calculates distance between the circle and closest point
-                
-                # Check if colliding
-                if distance <= self.radius:
-                    self.pos -= self.velocity # undoes previous update
-                    n = circlePointVec.normalize() # creates a normal vector as a origin for calculations
-                    impulse = 2 * (n * self.velocity) / (self.mass) # calculates the impulse the ball will get
-                    self.velocity -= impulse * n # applies impulse to each ball
-                    self.velocity *= restitutionCoeff # decreases velocity 
+    def checkResolveWallCollision(self): # Check if balls are colliding with the walls, then resolves collision
+        def checkColliding():
+            # Loops through each of the Rails (where collisions should be done)
+            for i in tableRails:
+                for j in range(3):
+                    lineStart = tableRails[i][j] # Coordinates of the Line Start and End
+                    lineEnd = tableRails[i][j+1] # e.g. [ [x1,y1] , [x2,y2] ]
+                    lineVec = VEC(lineEnd[0] - lineStart[0], lineEnd[1] - lineStart[1]) # Vector of the Line
+                    circleVec = VEC(self.pos[0] - lineStart[0], self.pos[1] - lineStart[1]) # Vector of the circle to the start of the line
+                    t = max(0, min(1, (circleVec[0] * lineVec[0] + circleVec[1] * lineVec[1]) / lineVec.magnitude_squared()))
+                    # This creates a parameter that will calculate the s.f of the normal projection that maps the circle onto the line segment
+                    linePoint = (lineStart[0] + t * lineVec[0], lineStart[1] + t * lineVec[1]) # Calculate closest point on the line to the circle
+                    circlePointVec = VEC(linePoint[0] - self.pos[0], linePoint[1] - self.pos[1]) # Vector of the circle to the closest point
+                    distance = circlePointVec.magnitude() # calculates distance between the circle and closest point
+                    # Check if colliding
+                    if distance <= self.radius:
+                        return True, circlePointVec
+            return False, None # if not colliding, return False
+
+        calculateCollision = False  
+        isColliding, circlePointVec = checkColliding() # checks if colliding
+        
+        if isColliding: # if colliding
+            calculateCollision = True # calculate collision at the end
+            n = circlePointVec.normalize() # creates a normal vector as a origin for calculations
+
+        while isColliding: # while colliding
+            self.pos -= self.velocity.normalize()  # incrementally move the ball back until it is no longer colliding
+            isColliding, circlePointVec = checkColliding() # checks if colliding
+
+        # Check if colliding
+        if calculateCollision:
+            impulse = 2*(n*self.velocity)/(self.mass) # calculates the impulse the ball will get
+            self.velocity -= impulse * n # applies impulse to each ball
+            self.velocity *= restitutionCoeff # decreases velocity 
 
     def checkHoleCollision(self):
         for i in holePos: # for each hole on the table
@@ -455,6 +488,9 @@ def gameLogic(): # determines state of next round on all factors
             if number == 8: # if the 8 ball is potted
                 eightBallPotted = True # set case to True
 
+            if number == 0: # if the white ball is potted
+                changeTurn = True
+
             if player1Turn: # if it is player 1's turn
                 if player1BallType == "dotted": # if player 1 type is dotted
                     if isStriped: # if the ball is striped
@@ -486,11 +522,11 @@ def gameLogic(): # determines state of next round on all factors
             if player1Turn:
                 winner = "Player 1"
             else:
-                winner = "Player 2"
+                winner = "Computer"
         else:
             # whoever potted the 8 ball loses
             if player1Turn:
-                winner = "Player 2"
+                winner = "Computer"
             else:
                 winner = "Player 1"
                 
@@ -710,7 +746,7 @@ def drawPlayerIndicator(): # Draws the player indicator
     # render font
     player1Text = playerIndicatorFont.render(("Player 1"), True, "red")
     vsText = playerIndicatorFont.render(("vs"), True, "white")
-    player2Text = playerIndicatorFont.render(("Player 2"), True, "blue")
+    player2Text = playerIndicatorFont.render(("Computer"), True, "blue")
     
     player1arrowText = playerIndicatorFont.render(("=>"), True, "white")
     player2arrowText = playerIndicatorFont.render(("<="), True, "white")
@@ -736,10 +772,6 @@ gameQueue = [] # Queue/List for storing events in between each turn.
 pottedBalls = [] # List for storing potted balls in whole game
 roundPottedBalls = [] # List for storing potted balls in each round
 
-player1BallType = None # Stores the type of balls player 1 is potting
-player2BallType = None # Stores the type of balls player 2 is potting
-
-winner = None
 
 # Game Loop
 while True:
@@ -772,7 +804,6 @@ while True:
         # execute all functions/procedures in the queue
         for function in gameQueue:
             function() # execute the event
-            print(function)
         gameQueue.clear() # clear the queue
 
         drawCue() # draw the cue and give velocity to the white ball if clicked
