@@ -389,15 +389,18 @@ def checkIfBallMoving(): # Checks if any ball is moving (returns True if any bal
             ballMoving = True # if even one ball is still moving, it is set to True.
     return ballMoving
 
-def distanceToClosestBall(intialPos): # returns distance from closest ball
+def distanceToClosestBall(intialPos, type): # returns distance from closest ball
     closestDistance = float("inf") # sets initial value to infinity
     otherBall = None # sets initial value to none
     for ball in ballGroup.sprites(): # loops through every ball (except whiteball)
-        if ball.number != 0: # skip if the ball is itself (white)
-            distance = VEC(intialPos).distance_to(ball.pos) # finds the distance between the ball and the whiteball
-            if distance < closestDistance: # if the new distance is smaller, set the new distance to the actual distance
-                closestDistance = distance
-                otherBall = ball
+        if  (type == "striped" and ball.isStriped and not ball.number == 8) or \
+            (type == "dotted" and not ball.isStriped and not ball.number == 8) or \
+            (type == None): # if the ball is the specified type or not classified
+            if ball.number != 0: # skip if the ball is itself (white)
+                distance = VEC(intialPos).distance_to(ball.pos) # finds the distance between the ball and the whiteball
+                if distance < closestDistance: # if the new distance is smaller, set the new distance to the actual distance
+                    closestDistance = distance
+                    otherBall = ball
     return closestDistance, otherBall # return the distance and then the instance of the other ball 
 
 def distanceToClosestRail(intialPos): # returns distance from closest rail
@@ -663,7 +666,7 @@ def drawCue(): # draws the cue
     virtualBallPos = VEC(balls[0].pos) # sets initial position of virtual ball
     
     railDistance, closestRail = distanceToClosestRail(virtualBallPos) # updates distance to closest rail
-    ballDistance, closestBall = distanceToClosestBall(virtualBallPos) # updates distance to closest ball
+    ballDistance, closestBall = distanceToClosestBall(virtualBallPos, type=None) # updates distance to closest ball
 
     # rough check for virtual ball collisions
     maxIterations = 1000 # limits the number of iterations the initial while loop will do
@@ -673,7 +676,7 @@ def drawCue(): # draws the cue
     ): # while the ball is not close to a rail (and within the table bounds)
         virtualBallPos += ballRadius*cueVec # get closer to rail
         railDistance, closestRail = distanceToClosestRail(virtualBallPos) # find new distance
-        ballDistance, closestBall = distanceToClosestBall(virtualBallPos)
+        ballDistance, closestBall = distanceToClosestBall(virtualBallPos, type=None)
         maxIterations -= 1 # decrement counter
     
     # if ball collides with other ball, set this to true
@@ -694,7 +697,7 @@ def drawCue(): # draws the cue
     ): # while the ball is colliding with a rail or out of the table bounds
         virtualBallPos -= cueVec # move the ball back by a very small amount
         railDistance, closestRail = distanceToClosestRail(virtualBallPos) # find new distance
-        ballDistance, closestBall = distanceToClosestBall(virtualBallPos)
+        ballDistance, closestBall = distanceToClosestBall(virtualBallPos, type=None)
 
     cueColour = "" # set colour of cue
     if player1Turn:
@@ -767,10 +770,41 @@ def checkWin(winner): # checks if there is a winner
         winTextPos = [centre[0] - winText.get_width()/2, centre[1] - winText.get_height()/2] # offsets the font to be central
         screen.blit(winText,winTextPos) # adds font to screen   
 
+def computerShoot(): # computer finds shot and takes shot
+    global player2BallType
+
+    if player2BallType == None: # if the ball type is not set
+        # find closest ball and hit it
+        distance, closestBall = distanceToClosestBall(balls[0].pos, type=None) # find closest ball
+        ballVec = (closestBall.pos - balls[0].pos).normalize() # vector of the ball to the white ball
+        balls[0].velocity = ballVec*20 # give ball a velocity
+
+    else:
+        # find closest ball of that ball type and hit it
+
+        hitEightBall = True # set initial case to True
+        for i in ballGroup.sprites(): # loop through each ball
+            if i.number == 8 or i.number == 0: # if the ball is the 8 ball or the white ball
+                continue # skip the ball
+            elif (player2BallType == "striped" and i.isStriped) or (player2BallType == "dotted" and not i.isStriped): # if there is a ball of correct type, hit that ball
+                hitEightBall = False # set case to False
+            else: 
+                print("no ball of correct type to hit") # if there is no ball of correct type, return error
+
+        if hitEightBall: # if there is no ball of correct type, hit the 8 ball
+            ballVec = (balls[8].pos - balls[0].pos).normalize() # vector of the ball to the white ball
+            balls[0].velocity = ballVec*20 # give ball a velocity
+        else:
+            distance, closestBall = distanceToClosestBall(balls[0].pos, type=player2BallType) # find closest ball of correct type
+            ballVec = (closestBall.pos - balls[0].pos).normalize() # vector of the ball to the white ball
+            balls[0].velocity = ballVec*20 # give ball a velocity
+
+
 gameQueue = [] # Queue/List for storing events in between each turn.
 
 pottedBalls = [] # List for storing potted balls in whole game
 roundPottedBalls = [] # List for storing potted balls in each round
+
 
 
 # Game Loop
@@ -806,12 +840,14 @@ while True:
             function() # execute the event
         gameQueue.clear() # clear the queue
 
-        drawCue() # draw the cue and give velocity to the white ball if clicked
+        if computerPlaying and not player1Turn: # if computer is playing
+            computerShoot() # computer finds shot and takes shot
+        else: # if computer is not playing
+            drawCue() # draw the cue and give velocity to the white ball if clicked
 
         # if the ball has been hit 
         if checkIfBallMoving():
             gameQueue.append(gameLogic) # when the balls are next still, apply game logic to determine the next round.
-
 
     ballPowerSlider.draw(screen) # Draws slider
 
