@@ -21,8 +21,6 @@ centre = (resolution[0]//2, resolution[1]//2)
 holeRadius = 15
 ballRadius = 12
 
-player1Colour = "red"
-player2Colour = "blue"
 computerPlaying = True # Set to True if you want the computer to play
 
 # Global Variables
@@ -38,6 +36,7 @@ fpsFont = pygame.font.SysFont("dubaimedium", 20)
 logoFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 70)
 ballPottedFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 70)
 playerIndicatorFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 60)
+MenuLogoFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 100)
 
 tableCorners = (
     (centre[0] - tableDimensions[0] / 2, centre[1] - tableDimensions[1] / 2), # Top Left
@@ -291,7 +290,7 @@ class Slider(pygame.sprite.Sprite):
             self.width,
         )
 
-    def update(self): # updates slider position
+    def update(self, event): # updates slider position
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: # when left mouse button clicked
             mousePos = pygame.mouse.get_pos() # get mouse position
             if 0 <= mousePos[0] - self.position[0] <= self.width: # if click is within x bounds
@@ -523,15 +522,15 @@ def gameLogic(): # determines state of next round on all factors
         if dottedPotted == 7 or stripedPotted == 7:
             # whoever potted the 8 ball wins
             if player1Turn:
-                winner = "Player 1"
+                winner = player1Name
             else:
-                winner = "Computer"
+                winner = player2Name
         else:
             # whoever potted the 8 ball loses
             if player1Turn:
-                winner = "Computer"
+                winner = player2Name
             else:
-                winner = "Player 1"
+                winner = player1Name
                 
     if changeTurn: # if the turn is to be changed
         player1Turn = not player1Turn # switch turns
@@ -586,7 +585,7 @@ def drawBalls(): # Draws all the balls
     for ball in ballGroup.sprites():
         ball.draw(screen)
 
-def drawBallUI(): # Draw 15 balls on screen for UI (NOT ON TABLE)
+def drawBallUI(isSandbox): # Draw 15 balls on screen for UI (NOT ON TABLE)
     increment = 0 # adds a value on each time so the balls are not drawn on top of each other
     distanceBetweenBalls = tableDimensions[0]/(len(ballInfo)-2)
     largerBallRadius = 25
@@ -616,6 +615,8 @@ def drawBallUI(): # Draw 15 balls on screen for UI (NOT ON TABLE)
         numberFontPos = [circleCentre[0] - numberFont.get_width()/2,circleCentre[1] - numberFont.get_height()/2]# offsets the font to be central with ball
         screen.blit(numberFont,numberFontPos) # adds font to screen 
         
+        
+
         potted = True # set inital case to True
         for ball in ballGroup:
             if ball.number == ballInfo[i+1][1]: # If the ball still exists
@@ -627,28 +628,29 @@ def drawBallUI(): # Draw 15 balls on screen for UI (NOT ON TABLE)
         
         increment += distanceBetweenBalls
 
-    line1start = (tableCorners[0][0] - largerBallRadius, circleCentre[1] - largerBallRadius - 10)
-    line1end = (centre[0] - distanceBetweenBalls + largerBallRadius, circleCentre[1] - largerBallRadius - 10)
+    if not isSandbox: # don't draw this if in sandbox mode
+        line1start = (tableCorners[0][0] - largerBallRadius, circleCentre[1] - largerBallRadius - 10)
+        line1end = (centre[0] - distanceBetweenBalls + largerBallRadius, circleCentre[1] - largerBallRadius - 10)
 
-    line2start = (tableCorners[3][0] + largerBallRadius, circleCentre[1] - largerBallRadius - 10)
-    line2end = (centre[0] + distanceBetweenBalls - largerBallRadius, circleCentre[1] - largerBallRadius - 10)
+        line2start = (tableCorners[3][0] + largerBallRadius, circleCentre[1] - largerBallRadius - 10)
+        line2end = (centre[0] + distanceBetweenBalls - largerBallRadius, circleCentre[1] - largerBallRadius - 10)
 
-    line3start = (tableCorners[0][0] - largerBallRadius, circleCentre[1] + largerBallRadius + 10)
-    line3end = (centre[0] - distanceBetweenBalls + largerBallRadius, circleCentre[1] + largerBallRadius + 10)
+        line3start = (tableCorners[0][0] - largerBallRadius, circleCentre[1] + largerBallRadius + 10)
+        line3end = (centre[0] - distanceBetweenBalls + largerBallRadius, circleCentre[1] + largerBallRadius + 10)
 
-    line4start = (tableCorners[3][0] + largerBallRadius, circleCentre[1] + largerBallRadius + 10)
-    line4end = (centre[0] + distanceBetweenBalls - largerBallRadius, circleCentre[1] + largerBallRadius + 10)
+        line4start = (tableCorners[3][0] + largerBallRadius, circleCentre[1] + largerBallRadius + 10)
+        line4end = (centre[0] + distanceBetweenBalls - largerBallRadius, circleCentre[1] + largerBallRadius + 10)
 
-    if player1BallType == "dotted":
-        pygame.draw.line(screen, player1Colour, line1start, line1end, 5) # draw lines of player 1
-        pygame.draw.line(screen, player1Colour, line3start, line3end, 5) # draw lines of player 1
-        pygame.draw.line(screen, player2Colour, line2start, line2end, 5) # draw line of player 2
-        pygame.draw.line(screen, player2Colour, line4start, line4end, 5) # draw line of player 2
-    elif player1BallType == "striped":
-        pygame.draw.line(screen, player2Colour, line1start, line1end, 5) # draw lines of player 2
-        pygame.draw.line(screen, player2Colour, line3start, line3end, 5) # draw lines of player 2
-        pygame.draw.line(screen, player1Colour, line2start, line2end, 5) # draw line of player 1
-        pygame.draw.line(screen, player1Colour, line4start, line4end, 5) # draw line of player 1
+        if player1BallType == "dotted":
+            pygame.draw.line(screen, player1Colour, line1start, line1end, 5) # draw lines of player 1
+            pygame.draw.line(screen, player1Colour, line3start, line3end, 5) # draw lines of player 1
+            pygame.draw.line(screen, player2Colour, line2start, line2end, 5) # draw line of player 2
+            pygame.draw.line(screen, player2Colour, line4start, line4end, 5) # draw line of player 2
+        elif player1BallType == "striped":
+            pygame.draw.line(screen, player2Colour, line1start, line1end, 5) # draw lines of player 2
+            pygame.draw.line(screen, player2Colour, line3start, line3end, 5) # draw lines of player 2
+            pygame.draw.line(screen, player1Colour, line2start, line2end, 5) # draw line of player 1
+            pygame.draw.line(screen, player1Colour, line4start, line4end, 5) # draw line of player 1
 
 def drawLogo(): # Draws the logo 
     logo = logoFont.render(("BILLIARD CLUB"), True, "white")
@@ -747,9 +749,9 @@ def drawCue(): # draws the cue
 
 def drawPlayerIndicator(): # Draws the player indicator
     # render font
-    player1Text = playerIndicatorFont.render(("Player 1"), True, "red")
+    player1Text = playerIndicatorFont.render((player1Name), True, player1Colour)
     vsText = playerIndicatorFont.render(("vs"), True, "white")
-    player2Text = playerIndicatorFont.render(("Computer"), True, "blue")
+    player2Text = playerIndicatorFont.render((player2Name), True, player2Colour)
     
     player1arrowText = playerIndicatorFont.render(("=>"), True, "white")
     player2arrowText = playerIndicatorFont.render(("<="), True, "white")
@@ -800,62 +802,105 @@ def computerShoot(): # computer finds shot and takes shot
             balls[0].velocity = ballVec*20 # give ball a velocity
 
 
-gameQueue = [] # Queue/List for storing events in between each turn.
+def pauseScreen():
 
-pottedBalls = [] # List for storing potted balls in whole game
-roundPottedBalls = [] # List for storing potted balls in each round
+    running = True    
+    while running:
+        for event in pygame.event.get():  # Iterate through the events
+            if event.type == pygame.QUIT:  # Check if the quit event is triggered
+                running = False  # Exit the loop
+            if event.type == pygame.KEYDOWN:  # Check if a key is released
+                if event.key == pygame.K_ESCAPE:  # Check if the key is ESCAPE
+                    running = False  # Exit the loop
+        
+        screen.fill((30, 30, 30))  # Fills the screen with a grey colour
+        drawTable()  # Draw the table
+        drawBalls()  # Draw the balls
 
-
-
-# Game Loop
-while True:
-    mouseDown = False
+        pygame.display.flip()  # Update the display
     
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT: # Checks if user closes program
-            pygame.quit()
-            exit()
 
-        if event.type == pygame.MOUSEBUTTONDOWN: # on left click
-            mouseDown = True
+def newGame(computerPlaying, sandbox, player1Nametemp, player2Nametemp, player1Colourtemp, player2Colourtemp):
+    global gameQueue
+    global pottedBalls
+    global roundPottedBalls
+    global mouseDown
 
-    ballPowerSlider.update() # Update Slider
-    ballGroup.update() # update each ball
-    
-    resolveAllCollisions() # Checks and resolves every collision between every pair of balls (only if colliding)
-    resolveWallCollisions() # Checks and resolves every collision between every ball and the walls
-    resolveBallPotted() # checks if a ball is potted and deletes it if it is.
+    global player1Name
+    global player2Name
+    global player1Colour
+    global player2Colour
 
 
-    # Draw Everything to Screen:
-    
-    screen.fill((30, 30, 30)) # Fills the screen with a grey colour
-    
-    drawTable() # Draws the table
-    drawBalls() # draws the balls
+    player1Name = player1Nametemp
+    player2Name = player2Nametemp
+    player1Colour = player1Colourtemp
+    player2Colour = player2Colourtemp
 
-    if not checkIfBallMoving(): # when all the balls are still
-        # execute all functions/procedures in the queue
-        for function in gameQueue:
-            function() # execute the event
-        gameQueue.clear() # clear the queue
 
-        if computerPlaying and not player1Turn: # if computer is playing
-            computerShoot() # computer finds shot and takes shot
-        else: # if computer is not playing
-            drawCue() # draw the cue and give velocity to the white ball if clicked
+    if computerPlaying:
+        player2Name = "Computer"
 
-        # if the ball has been hit 
-        if checkIfBallMoving():
-            gameQueue.append(gameLogic) # when the balls are next still, apply game logic to determine the next round.
+    gameQueue = [] # Queue/List for storing events in between each turn.
+    pottedBalls = [] # List for storing potted balls in whole game
+    roundPottedBalls = [] # List for storing potted balls in each round
 
-    ballPowerSlider.draw(screen) # Draws slider
+    # Game Loop
+    while True:
+        mouseDown = False
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT: # Checks if user closes program
+                pygame.quit()
+                exit()
 
-    drawBallUI() # draws the ball UI (15 balls that tells the user which ball to pot next)
-    drawLogo() # draws the logo
-    drawFPS() # draws the FPS
-    drawPlayerIndicator() # draws the player indicator
-    checkWin(winner) # checks if there is a winner and draws it to the screen
+            if event.type == pygame.MOUSEBUTTONDOWN: # on left click
+                mouseDown = True
 
-    pygame.display.flip() # Updates the display
-    clock.tick(FPS) # Caps the frame rate
+            # Check if a key is released
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE: # Check if the key is ESCAPE
+                    pauseScreen() # Call the pause screen function
+
+            ballPowerSlider.update(event) # Update Slider
+        ballGroup.update() # update each ball
+        
+        resolveAllCollisions() # Checks and resolves every collision between every pair of balls (only if colliding)
+        resolveWallCollisions() # Checks and resolves every collision between every ball and the walls
+        resolveBallPotted() # checks if a ball is potted and deletes it if it is.
+
+
+        # Draw Everything to Screen:
+        
+        screen.fill((30, 30, 30)) # Fills the screen with a grey colour
+        
+        drawTable() # Draws the table
+        drawBalls() # draws the balls
+
+        if not checkIfBallMoving(): # when all the balls are still
+            # execute all functions/procedures in the queue
+            for function in gameQueue:
+                function() # execute the event
+            gameQueue.clear() # clear the queue
+
+            if computerPlaying and not player1Turn: # if computer is playing
+                computerShoot() # computer finds shot and takes shot
+            else: # if computer is not playing
+                drawCue() # draw the cue and give velocity to the white ball if clicked
+
+            # if the ball has been hit 
+            if checkIfBallMoving() and not sandbox:
+                gameQueue.append(gameLogic) # when the balls are next still, apply game logic to determine the next round.
+
+        ballPowerSlider.draw(screen) # Draws slider
+
+        drawBallUI(sandbox) # draws the ball UI (15 balls that tells the user which ball to pot next)
+        drawLogo() # draws the logo
+        drawFPS() # draws the FPS
+        
+        if not sandbox:
+            drawPlayerIndicator() # draws the player indicator
+            checkWin(winner) # checks if there is a winner and draws it to the screen
+
+        pygame.display.flip() # Updates the display
+        clock.tick(FPS) # Caps the frame rate
