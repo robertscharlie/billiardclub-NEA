@@ -10,7 +10,7 @@ resolution = (800, 600) # Screen dimensions
 borderName = "ballPhysics.py" # Displays at the top of the program
 VEC = pygame.math.Vector2
 
-ballRadius = 10
+ballRadius = 70
 
 # Pygame Functions
 pygame.display.set_caption(borderName)
@@ -20,8 +20,8 @@ clock = pygame.time.Clock()
 class Ball(pygame.sprite.Sprite): # Defines a class for a ball
     def __init__(self, colour, radius, pos, velocity, mass): # Constructor Method
         super().__init__()
-        self.colour = colour
-        self.radius = radius
+        self.colour = colour  # Colour of the ball
+        self.radius = radius  # Radius of the ball
         self.pos = VEC(pos) # Position Vector
         self.velocity = VEC(velocity) # Velocity vector
         self.mass = mass

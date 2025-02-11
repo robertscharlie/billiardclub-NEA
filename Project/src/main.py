@@ -1,7 +1,7 @@
 import pygame
 import math
 
-pygame.init()
+pygame.init()  # Initialize all imported pygame modules
 
 # Variables
 FPS = 70
@@ -172,7 +172,11 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
 
         if self.velocity.magnitude_squared() < 0.005:
             self.velocity = VEC(0,0)
-        
+
+        # Create exception for white ball:
+        if self.pos == VEC(0,0):
+            return None
+
         # Checking collisions with the outer walls: (ensures all balls stay in region)
         if self.pos[0] - self.radius <= tableCorners[0][0]: # Left Wall
             self.pos[0] = self.radius + tableCorners[0][0]  # Put ball on edge of wall
@@ -215,15 +219,20 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
                     other.pos += 0.05 * other.velocity 
                     colliding, posDifference = checkColliding(self,other) # checks if colliding
 
-        if calculateCollision: # if colliding
-            # Calculate Velocities after collision
+        if calculateCollision: # if colliding, calculate velocities after collision
             n = VEC(posDifference).normalize() # creates a normalised vector as a origin for calculations
             relVel = self.velocity - other.velocity # calculates the relative velocity of the balls
-            impulse = 2 * (n * relVel) / (self.mass + other.mass) # calculates the impulse each ball will get
+
+            # Calculate volume of ball collision sound
+            collisionSpeed = VEC(relVel).magnitude() # obtains rough value of speed
+            volume = masterVolumeSlider.returnValue()*ballVolumeSlider.returnValue()*(collisionSpeed/2)
+            ballCollideSound.set_volume(max(0.1,min(0.8,volume))) # updates volume of sound
+            ballCollideSound.play() # plays sound when balls collide
             
+            # Calculate Vectors of balls after collision
+            impulse = 2 * (n * relVel) / (self.mass + other.mass) # calculates the impulse each ball will get
             self.velocity -= impulse * other.mass * n # applies impulse to each ball
             other.velocity += impulse * self.mass * n
-
             self.velocity *= restitutionCoeff # decreases velocity of both balls
             other.velocity *= restitutionCoeff
         
@@ -233,8 +242,10 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
             other.pos -= n
             colliding, posDifference = checkColliding(self,other) # checks if still colliding
 
-
     def checkResolveWallCollision(self): # Check if balls are colliding with the walls, then resolves collision
+        if self.velocity == VEC(0,0): # Prevents Normalisation Error
+            return None
+
         def checkColliding():
             # Loops through each of the Rails (where collisions should be done)
             for i in tableRails:
@@ -485,6 +496,7 @@ class Menu:  # Defines Menu class
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Check if the left mouse button is clicked
             for button in self.buttons:  # Iterate through each button
                 if button.checkHover(event.pos):  # Check if click occurred and if hovering over button
+                    clickSound.play() # plays click sound
                     button.wasClicked = True  # Set button as clicked
                 else:
                     button.wasClicked = False  # Set button as not clicked
@@ -546,8 +558,29 @@ optionsMenu = Menu(60, [50,50], ["Customise Game", "Volume Control", "Back"], ["
 customisationMenu = Menu(60, [50,50], ["Customise Game", "Back"], ["customisationScreen()", "optionsScreen()"]) # create a menu
 pauseMenu = Menu(60, [50,50], ["Game Paused", "Exit Game"], ["print()", "mainMenuScreen()"]) # create a menu
 volumeMenu = Menu(60, [50,50], ["Volume Control", "Back"], ["volumeControlScreen()", "optionsScreen()"]) # create a menu
+
 # Initialise Slider sprite
 ballPowerSlider = VerticalSlider("white", "red", (tableCorners[0][0]/2 - 30,tableCorners[0][1]-30), 30, tableDimensions[1] + 60, 0.5) 
+
+# Initialise Sliders
+masterVolumeSlider = HorizontalSlider(390, 245, 260, 20, 0.7, "green", (30, 30, 30), "white", "normal")
+musicVolumeSlider = HorizontalSlider(390, 345, 260, 20, 0.5, "green", (30, 30, 30), "white", "normal")
+ballVolumeSlider = HorizontalSlider(390, 445, 260, 20, 0.6, "green", (30, 30, 30), "white", "normal")
+
+# Initialise Background Music
+pygame.mixer.music.load("Project/other/chill-house-sunset-groove-251697.mp3")
+pygame.mixer.music.play(-1,0.0) # Play Game Music in background indefinitely
+
+# Initialise Other Music/Sounds
+clickSound = pygame.mixer.Sound("Project/other/click-151673.mp3")
+ballCollideSound = pygame.mixer.Sound("Project/other/pool_break-105353.mp3")
+ballPottedSound = pygame.mixer.Sound("Project/other/billiard-hole-288419.mp3")
+
+# Initially sets the volumes of the Sound effects and music:
+pygame.mixer.music.set_volume(masterVolumeSlider.returnValue()*musicVolumeSlider.returnValue())
+clickSound.set_volume(masterVolumeSlider.returnValue()*ballVolumeSlider.returnValue())
+ballCollideSound.set_volume(masterVolumeSlider.returnValue()*ballVolumeSlider.returnValue())
+ballPottedSound.set_volume(masterVolumeSlider.returnValue()*ballVolumeSlider.returnValue())
 
 # Initialise each ball
 balls = [
@@ -630,14 +663,16 @@ def resolveWallCollisions(): # Checks and resolves every collision between every
         ball.checkResolveWallCollision() # checks wall collisions
 
 def resolveBallPotted(): # Checks if a ball is potted
+    toDelete = [] # deletes balls after looped through list
     for ball in ballGroup.sprites():
         if ball.checkHoleCollision(): # checks if each ball is in a hole
             if ball.number == 0: # if the white ball is potted
+                ballPottedSound.play() # plays sound when ball potted
                 gameQueue.append(resetWhiteBall) # tells the game to reset the white ball on the start of the round
-                balls[0].velocity = VEC(0,0) # resets the velocity of the white ball
-                balls[0].pos = VEC(0,0) # resets the position of the white ball
-
+                ball.velocity = VEC(0,0) # resets the velocity of the white ball
+                ball.pos = VEC(0,0) # resets the position of the white ball
             else:
+                ballPottedSound.play() # plays sound when ball potted
                 # On first run, set the ball type for each player
                 global player1BallType, player2BallType
                 if player1BallType == None and player2BallType == None: 
@@ -655,8 +690,11 @@ def resolveBallPotted(): # Checks if a ball is potted
                 pottedBalls.append(pottedBallInfo) # adds the ball number to the list of potted balls
                 roundPottedBalls.append(pottedBallInfo) # adds the ball number to the list of the round's potted balls
 
-                ball.delete() # removes the ball from the game
+                toDelete.append(ball) # removes the ball from the game
         
+        for i in toDelete:
+            i.delete()
+
         ball.draw(screen) # draws each ball
 
 def resetWhiteBall(): # resets the white ball
@@ -755,8 +793,8 @@ def computerShoot(): # computer finds shot and takes shot
                 continue # skip the ball
             elif (player2BallType == "striped" and i.isStriped) or (player2BallType == "dotted" and not i.isStriped): # if there is a ball of correct type, hit that ball
                 hitEightBall = False # set case to False
-            else: 
-                print("no ball of correct type to hit") # if there is no ball of correct type, return error
+            # else: 
+            #     print("no ball of correct type to hit") # if there is no ball of correct type, return error
 
         if hitEightBall: # if there is no ball of correct type, hit the 8 ball
             ballVec = (balls[8].pos - balls[0].pos).normalize() # vector of the ball to the white ball
@@ -1002,6 +1040,8 @@ def drawCue(): # draws the cue
         if tableCorners[0][0] <= mousePos[0] <= tableCorners[1][0] \
             and tableCorners[0][1] <= mousePos[1] <= tableCorners[2][1]: # if mouse is on the pool table
             balls[0].velocity = cueVec*20*ballPowerSlider.returnValue() # give ball a velocity
+            ballCollideSound.set_volume(masterVolumeSlider.returnValue()*ballVolumeSlider.returnValue())
+            ballCollideSound.play()
 
 def drawPlayerIndicator(): # Draws the player indicator
     # render font
@@ -1152,18 +1192,11 @@ def pauseScreen(): # Main loop for the pause screen
         pygame.display.flip()  # Update the display
  
 def volumeControlScreen(): # Main loop for the volume control screen
-    
-    # Initialise Sliders
-    masterVolumeSlider = HorizontalSlider(390, 245, 260, 20, 1, "green", (30, 30, 30), "white", "normal")
-    musicVolumeSlider = HorizontalSlider(390, 345, 260, 20, 1, "green", (30, 30, 30), "white", "normal")
-    ballVolumeSlider = HorizontalSlider(390, 445, 260, 20, 1, "green", (30, 30, 30), "white", "normal")
-    
     # Initialise Text Boxes
     TextBox1 = TextBox(70, 230, "Master Volume", "", 30)
     TextBox2 = TextBox(70, 330, "Music Volume", "", 30)
     TextBox3 = TextBox(70, 430, "Ball Sounds", "", 30)
-
-
+    
     running = True    
     while running:
         for event in pygame.event.get():  # Iterate through the events
@@ -1196,6 +1229,14 @@ def volumeControlScreen(): # Main loop for the volume control screen
 
         volumeMenu.draw() # draw the menu
         volumeMenu.update()  # Update the menu
+
+        # Updates the volumes of the Sound
+        clickSound.set_volume(masterVolumeSlider.returnValue()*ballVolumeSlider.returnValue())
+        ballCollideSound.set_volume(masterVolumeSlider.returnValue()*ballVolumeSlider.returnValue())
+        ballPottedSound.set_volume(masterVolumeSlider.returnValue()*ballVolumeSlider.returnValue())
+
+        # Updates Background Music Volume
+        pygame.mixer.music.set_volume(masterVolumeSlider.returnValue()*musicVolumeSlider.returnValue())
 
         pygame.display.flip()  # Update the display
 
