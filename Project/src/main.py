@@ -1,5 +1,7 @@
 import pygame
 import math
+import numpy as np
+import cv2
 
 pygame.init()  # Initialize all imported pygame modules
 
@@ -149,10 +151,10 @@ player2Colour = "blue"
 ballFont = pygame.font.SysFont("dubaimedium", int(ballRadius*0.9))
 ballUIFont = pygame.font.SysFont("dubaimedium", 18)
 fpsFont = pygame.font.SysFont("dubaimedium", 20)
-logoFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 70)
-ballPottedFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 70)
-playerIndicatorFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 60)
-MenuLogoFont = pygame.font.Font("Project\other\Orbitron-VariableFont_wght.ttf", 100)
+logoFont = pygame.font.Font(".\Project\other\Orbitron-VariableFont_wght.ttf", 70)
+ballPottedFont = pygame.font.Font(".\Project\other\Orbitron-VariableFont_wght.ttf", 70)
+playerIndicatorFont = pygame.font.Font(".\Project\other\Orbitron-VariableFont_wght.ttf", 60)
+MenuLogoFont = pygame.font.Font(".\Project\other\Orbitron-VariableFont_wght.ttf", 100)
 
 # Classes
 class Ball(pygame.sprite.Sprite): # Defines a class for a ball
@@ -306,14 +308,13 @@ class Ball(pygame.sprite.Sprite): # Defines a class for a ball
                 )
             )
 
-        text = ballFont.render(str(self.number),True,"black") # renders font
-        pygame.draw.circle(screen, "white", self.pos, text.get_height()/2.2) # draws inner circle
-        
-        fontPos = [self.pos[0] - text.get_width()/2,self.pos[1] - text.get_height()/2] # offsets the font to be central with ball
-        
-        screen.blit(text,fontPos) # adds font to screen
-
-        # COMPILE ALL DRAWINGS INTO ONE BLIT
+        if self.number != 0: # draws a number on every ball except white
+            text = ballFont.render(str(self.number),True,"black") # renders font
+            pygame.draw.circle(screen, "white", self.pos, text.get_height()/2.2) # draws inner circle
+            
+            fontPos = [self.pos[0] - text.get_width()/2,self.pos[1] - text.get_height()/2] # offsets the font to be central with ball
+            
+            screen.blit(text,fontPos) # adds font to screen
 
     def delete(self):
         self.kill()
@@ -368,6 +369,9 @@ class VerticalSlider(pygame.sprite.Sprite): # Vertical Slider Class
     def returnValue(self): # returns slider position value
         return round(1-self.value, 3)
 
+    def updateColour(self, newColour): # updates the colour of the slider
+        self.sliderColour = newColour
+        
 class HorizontalSlider(pygame.sprite.Sprite): # Horizontal Slider Class
     def __init__(self, x, y, width, height, startValue, sliderColour, outerColour, circleColour, sliderType):
         self.sliderType = sliderType
@@ -558,6 +562,7 @@ optionsMenu = Menu(60, [50,50], ["Customise Game", "Volume Control", "Back"], ["
 customisationMenu = Menu(60, [50,50], ["Customise Game", "Back"], ["customisationScreen()", "optionsScreen()"]) # create a menu
 pauseMenu = Menu(60, [50,50], ["Game Paused", "Exit Game"], ["print()", "mainMenuScreen()"]) # create a menu
 volumeMenu = Menu(60, [50,50], ["Volume Control", "Back"], ["volumeControlScreen()", "optionsScreen()"]) # create a menu
+winMenu = Menu(60, [50,50], ["Play Again", "Exit to Menu"], ["gameModeScreen()", "mainMenuScreen()"]) # create a menu
 
 # Initialise Slider sprite
 ballPowerSlider = VerticalSlider("white", "red", (tableCorners[0][0]/2 - 30,tableCorners[0][1]-30), 30, tableDimensions[1] + 60, 0.5) 
@@ -582,30 +587,40 @@ clickSound.set_volume(masterVolumeSlider.returnValue()*ballVolumeSlider.returnVa
 ballCollideSound.set_volume(masterVolumeSlider.returnValue()*ballVolumeSlider.returnValue())
 ballPottedSound.set_volume(masterVolumeSlider.returnValue()*ballVolumeSlider.returnValue())
 
-# Initialise each ball
-balls = [
-    Ball("white", ballRadius, ballStartPos["white0"], (0, 0), 1, 0, None),      # Whiteball
-    Ball("yellow", ballRadius, ballStartPos["yellow1"], (0, 0), 1, 1, False),    # Yellow 1
-    Ball("blue", ballRadius, ballStartPos["blue2"], (0, 0), 1, 2, False),        # Blue 2
-    Ball("red", ballRadius, ballStartPos["red3"], (0, 0), 1, 3, False),          # Red 3
-    Ball("purple", ballRadius, ballStartPos["purple4"], (0, 0), 1, 4, False),    # Purple 4
-    Ball("orange", ballRadius, ballStartPos["orange5"], (0, 0), 1, 5, False),    # Orange 5
-    Ball("green", ballRadius, ballStartPos["green6"], (0, 0), 1, 6, False),      # Green 6
-    Ball("maroon", ballRadius, ballStartPos["maroon7"], (0, 0), 1, 7, False),    # Maroon 7
-    Ball("black", ballRadius, ballStartPos["black8"], (0, 0), 1, 8, None),      # Black 8
-    Ball("yellow", ballRadius, ballStartPos["yellow9"], (0, 0), 1, 9, True),     # Yellow 9
-    Ball("blue", ballRadius, ballStartPos["blue10"], (0, 0), 1, 10, True),       # Blue 10
-    Ball("red", ballRadius, ballStartPos["red11"], (0, 0), 1, 11, True),         # Red 11
-    Ball("purple", ballRadius, ballStartPos["purple12"], (0, 0), 1, 12, True),   # Purple 12
-    Ball("orange", ballRadius, ballStartPos["orange13"], (0, 0), 1, 13, True),   # Orange 13
-    Ball("green", ballRadius, ballStartPos["green14"], (0, 0), 1, 14, True),     # Green 14
-    Ball("maroon", ballRadius, ballStartPos["maroon15"], (0, 0), 1, 15, True),   # Maroon 15
-]
-
 ballGroup = pygame.sprite.Group() # Groups all balls for easier maintenance
 
-for i in balls: # adds each ball to the group
-    ballGroup.add(i)
+balls = []
+
+def initialiseBalls():
+    global balls
+    # Initialise each ball
+    balls = [
+        Ball("white", ballRadius, ballStartPos["white0"], (0, 0), 1, 0, None),      # Whiteball
+        Ball("yellow", ballRadius, ballStartPos["yellow1"], (0, 0), 1, 1, False),    # Yellow 1
+        Ball("blue", ballRadius, ballStartPos["blue2"], (0, 0), 1, 2, False),        # Blue 2
+        Ball("red", ballRadius, ballStartPos["red3"], (0, 0), 1, 3, False),          # Red 3
+        Ball("purple", ballRadius, ballStartPos["purple4"], (0, 0), 1, 4, False),    # Purple 4
+        Ball("orange", ballRadius, ballStartPos["orange5"], (0, 0), 1, 5, False),    # Orange 5
+        Ball("green", ballRadius, ballStartPos["green6"], (0, 0), 1, 6, False),      # Green 6
+        Ball("maroon", ballRadius, ballStartPos["maroon7"], (0, 0), 1, 7, False),    # Maroon 7
+        Ball("black", ballRadius, ballStartPos["black8"], (0, 0), 1, 8, None),      # Black 8
+        Ball("yellow", ballRadius, ballStartPos["yellow9"], (0, 0), 1, 9, True),     # Yellow 9
+        Ball("blue", ballRadius, ballStartPos["blue10"], (0, 0), 1, 10, True),       # Blue 10
+        Ball("red", ballRadius, ballStartPos["red11"], (0, 0), 1, 11, True),         # Red 11
+        Ball("purple", ballRadius, ballStartPos["purple12"], (0, 0), 1, 12, True),   # Purple 12
+        Ball("orange", ballRadius, ballStartPos["orange13"], (0, 0), 1, 13, True),   # Orange 13
+        Ball("green", ballRadius, ballStartPos["green14"], (0, 0), 1, 14, True),     # Green 14
+        Ball("maroon", ballRadius, ballStartPos["maroon15"], (0, 0), 1, 15, True),   # Maroon 15
+    ]
+
+    for i in balls: # adds each ball to the group
+        ballGroup.add(i)
+
+def deleteAllBalls():
+    for ball in ballGroup.sprites(): # loops through all balls
+        ball.delete() # deletes each ball
+
+initialiseBalls() # call function straight away to initialise balls on table
 
 # Game Functions
 def checkIfBallMoving(): # Checks if any ball is moving (returns True if any ball is moving)
@@ -766,14 +781,21 @@ def gameLogic(): # determines state of next round on all factors
                 
     if changeTurn: # if the turn is to be changed
         player1Turn = not player1Turn # switch turns
+        if player1Turn:
+            ballPowerSlider.updateColour(player1Colour) # update the colour of the power slider
+        else:
+            ballPowerSlider.updateColour(player2Colour) # update the colour of the power slider
+
+        ballPowerSlider.value = 0.5 # reset the power slider
     
     roundPottedBalls = [] # resets the list of potted balls
 
 def checkWin(winner): # checks if there is a winner
     if winner != None: # if there is a winner
-        winText = logoFont.render(winner + " wins!",True,"white") # renders the font
-        winTextPos = [centre[0] - winText.get_width()/2, centre[1] - winText.get_height()/2] # offsets the font to be central
-        screen.blit(winText,winTextPos) # adds font to screen   
+        if winner == player1Name: # if player 1 wins
+            winScreen(winner, player1Colour) # display the win screen
+        else:
+            winScreen(winner, player2Colour) # display the win screen
 
 def computerShoot(): # computer finds shot and takes shot
     global player2BallType
@@ -1062,6 +1084,14 @@ def drawPlayerIndicator(): # Draws the player indicator
     else:
         screen.blit(player2arrowText, (centre[0] + player2Text.get_width() + vsText.get_width() + player2arrowText.get_width()/2, 10))
 
+def gaussianBlur(screen, radius):
+    # uses cv2 to apply a gaussian blur to the screen
+    screenArray = np.transpose(pygame.surfarray.array3d(screen), (1, 0, 2))  # Convert screen to array and transpose axes for cv2
+    blurredSurface = np.transpose(cv2.GaussianBlur(screenArray, (radius, radius), 0), (1, 0, 2))  # Apply Gaussian blur and transpose back to original format
+    blurredSurface = pygame.surfarray.make_surface(blurredSurface)  # Convert blurred array back into a pygame surface
+    screen.blit(blurredSurface, [0, 0])  # Draw the blurred surface onto the screen
+
+
 # Screens
 def mainMenuScreen(): # Main loop for the main menu
     running = True
@@ -1074,8 +1104,8 @@ def mainMenuScreen(): # Main loop for the main menu
         screen.fill((30, 30, 30))  # Fills the screen with a grey colour
         drawTable()  # Draws the table on the screen
         drawBalls()  # Draws the balls on the screen
+        gaussianBlur(screen, 25)  # Apply a gaussian blur to the screen
         drawMenuLogo()  # Draws the menu logo on the screen
-
         mainMenu.draw()  # Draw the menu
         mainMenu.update()  # Update the menu
         pygame.display.flip()  # Update the display
@@ -1091,6 +1121,7 @@ def gameModeScreen(): # Main loop for the game mode selection screen
         screen.fill((30, 30, 30)) # Fills the screen with a grey colour
         drawTable()
         drawBalls()
+        gaussianBlur(screen, 25)  # Apply a gaussian blur to the screen
         drawMenuLogo()
         gameModeMenu.draw()  # Draw the menu
         gameModeMenu.update()  # Update the menu
@@ -1103,12 +1134,11 @@ def optionsScreen(): # Main loop for the options screen
             if menuEvent.type == pygame.QUIT:  # Check if the quit event is triggered
                 running = False  # Exit the loop
             optionsMenu.handleEvent(menuEvent)  # Check if any button is clicked    
-        
         screen.fill((30, 30, 30)) # Fills the screen with a grey colour
         drawTable()
         drawBalls()
+        gaussianBlur(screen, 25)  # Apply a gaussian blur to the screen
         drawMenuLogo()
-        
         optionsMenu.draw()  # Draw the menu
         optionsMenu.update()  # Update the menu
         pygame.display.flip()  # Update the display
@@ -1143,6 +1173,7 @@ def customisationScreen(): # Main loop for the customisation screen
         screen.fill((30, 30, 30)) # Fills the screen with a grey colour
         drawTable()
         drawBalls()
+        gaussianBlur(screen, 25)  # Apply a gaussian blur to the screen
         drawMenuLogo()
         
         customisationMenu.draw()  # Draw the menu
@@ -1185,6 +1216,7 @@ def pauseScreen(): # Main loop for the pause screen
         screen.fill((30, 30, 30))  # Fills the screen with a grey colour
         drawTable()  # Draw the table
         drawBalls()  # Draw the balls
+        gaussianBlur(screen, 25)  # Apply a gaussian blur to the screen
         drawMenuLogo() # Draw the Logo for the menu screen
 
         pauseMenu.draw() # draw the menu
@@ -1212,6 +1244,7 @@ def volumeControlScreen(): # Main loop for the volume control screen
         screen.fill((30, 30, 30))  # Fills the screen with a grey colour
         drawTable()  # Draw the table
         drawBalls()  # Draw the balls
+        gaussianBlur(screen, 25)  # Apply a gaussian blur to the screen
         drawMenuLogo() # Draw the Logo for the menu screen
 
         masterVolumeSlider.update()  # Update master volume slider
@@ -1240,6 +1273,38 @@ def volumeControlScreen(): # Main loop for the volume control screen
 
         pygame.display.flip()  # Update the display
 
+def winScreen(winner, colour): # Main loop for the win screen
+    running = True    
+    while running:
+        for event in pygame.event.get():  # Iterate through the events
+            if event.type == pygame.QUIT:  # Check if the quit event is triggered
+                running = False  # Exit the loop
+            if event.type == pygame.KEYDOWN:  # Check if a key is released
+                if event.key == pygame.K_ESCAPE:  # Check if the key is ESCAPE
+                    running = False  # Exit the loop
+            winMenu.handleEvent(event)
+
+        screen.fill((30, 30, 30))  # Fills the screen with a grey colour
+        drawTable()  # Draw the table
+        drawBalls()  # Draw the balls
+        gaussianBlur(screen, 25)  # Apply a gaussian blur to the screen
+        drawMenuLogo() # Draw the Logo for the menu screen
+        
+        winText = logoFont.render(winner +" wins!",True, colour) # renders the font
+        winOutlineText = logoFont.render(winner +" wins!", True, "black") # renders the font
+    
+        winTextPos = [centre[0] - winText.get_width(), centre[1] - winText.get_height()/2] # offsets the font to be central
+        # Draw the outline of the logo
+        for i in range(-3,4):
+            for j in range(-3,4):
+                screen.blit(winOutlineText, (winTextPos[0]+i,winTextPos[1]+j))
+        
+        screen.blit(winText,winTextPos) # adds font to screen   
+        
+        winMenu.draw() # draw the menu
+        winMenu.update()  # Update the menu
+        pygame.display.flip()  # Update the display
+ 
 # Run game
 def runGame(computerPlaying, sandbox): # Function to start a new game
     newGame(computerPlaying, sandbox, player1Name, player2Name, player1Colour, player2Colour)
@@ -1255,24 +1320,37 @@ def newGame(computerPlaying, sandbox, player1Nametemp, player2Nametemp, player1C
     global player1Colour
     global player2Colour
 
+    global winner
+    global player1BallType
+    global player2BallType
 
     player1Name = player1Nametemp
     player2Name = player2Nametemp
     player1Colour = player1Colourtemp
     player2Colour = player2Colourtemp
 
+    ballPowerSlider.updateColour(player1Colour) # update the colour of the power slider
 
-    if computerPlaying:
-        player2Name = "Computer"
+    if computerPlaying: 
+        player2Name = "Computer"  # Set player2Name to 'Computer' if computer is playing
+    else:
+        if player2Name == "Computer": 
+            player2Name = "Player 2"  # Change name to 'Player 2' if it was previously 'Computer'
 
     gameQueue = [] # Queue/List for storing events in between each turn.
     pottedBalls = [] # List for storing potted balls in whole game
     roundPottedBalls = [] # List for storing potted balls in each round
 
+    winner = None  # so there is no winner
+    player1BallType = None  # Reset player 1 ball type
+    player2BallType = None  # Reset player 2 ball type
+
+    deleteAllBalls() # Deletes all balls
+    initialiseBalls() # Then Initialise all balls to ensure all balls on table
+
     # Game Loop
     while True:
         mouseDown = False
-        
         for event in pygame.event.get():
             if event.type == pygame.QUIT: # Checks if user closes program
                 pygame.quit()
