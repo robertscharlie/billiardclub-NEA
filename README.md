@@ -4,6 +4,17 @@ A 2D pool/billiards game built with **Python** and **Pygame**, made as my A Leve
 
 The game features full 8-ball pool logic, realistic ball physics, a basic AI opponent, and a complete menu system with sound and customisation options.
 
+## Screenshots
+
+**Main Menu**
+![Main Menu](screenshots/main_menu.png)
+
+**Gameplay — breaking the rack**
+![Gameplay](screenshots/gameplay_break.png)
+
+**Win Screen**
+![Win Screen](screenshots/win_screen.png)
+
 ## Features
 
 - **8-ball pool rules** — turn tracking, ball type assignment (spots/stripes), potting, fouls, and win detection
