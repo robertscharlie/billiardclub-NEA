@@ -12,6 +12,9 @@ The game features full 8-ball pool logic, realistic ball physics, a basic AI opp
 **Gameplay — breaking the rack**
 ![Gameplay](screenshots/gameplay_break.png)
 
+**Customise Game**
+![Customise Game](screenshots/customise_game.png)
+
 **Win Screen**
 ![Win Screen](screenshots/win_screen.png)
 
